@@ -15,23 +15,9 @@
  */
 package org.springframework.data.cassandra.core.cql;
 
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-
-import org.reactivestreams.Publisher;
-
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.support.DataAccessUtils;
-import org.springframework.data.cassandra.ReactiveResultSet;
-import org.springframework.data.cassandra.ReactiveSession;
-import org.springframework.data.cassandra.ReactiveSessionFactory;
-import org.springframework.data.cassandra.core.cql.session.DefaultReactiveSessionFactory;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.DriverException;
@@ -41,6 +27,18 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.retry.RetryPolicy;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.support.DataAccessUtils;
+import org.springframework.data.cassandra.ReactiveResultSet;
+import org.springframework.data.cassandra.ReactiveSession;
+import org.springframework.data.cassandra.ReactiveSessionFactory;
+import org.springframework.data.cassandra.core.cql.session.DefaultReactiveSessionFactory;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * <b>This is the central class in the CQL core package for reactive Cassandra data access.</b> It simplifies the use of
@@ -742,9 +740,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 
 		applyStatementSettings(statement);
 
-		ReactiveSession session = getSession();
-
-		return Flux.defer(() -> callback.doInStatement(session, statement));
+		return getSession().flatMapMany(session -> callback.doInStatement(session, statement));
 	}
 
 	/**
@@ -759,9 +755,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 
 		applyStatementSettings(statement);
 
-		ReactiveSession session = getSession();
-
-		return Mono.defer(() -> Mono.from(callback.doInStatement(session, statement)));
+		return getSession().flatMap(session -> Mono.from(callback.doInStatement(session, statement)));
 	}
 
 	/**
@@ -774,9 +768,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 
 		Assert.notNull(callback, "ReactiveStatementCallback must not be null");
 
-		ReactiveSession session = getSession();
-
-		return Flux.defer(() -> callback.doInSession(session));
+		return getSession().flatMapMany(callback::doInSession);
 	}
 
 	/**
@@ -860,7 +852,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		return new ArgumentPreparedStatementBinder(args);
 	}
 
-	private ReactiveSession getSession() {
+	private Mono<ReactiveSession> getSession() {
 
 		ReactiveSessionFactory sessionFactory = getSessionFactory();
 

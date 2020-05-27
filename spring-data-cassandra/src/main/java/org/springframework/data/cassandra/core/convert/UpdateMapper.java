@@ -149,7 +149,7 @@ public class UpdateMapper extends QueryMapper {
 			return new SetAtKeyOp(field.getMappedKey(), mappedKey, mappedValue);
 		}
 
-		TypeInformation<?> typeInformation = getTypeInformation(field, rawValue);
+		ColumnType descriptor = getColumnType(field, rawValue, null);
 
 		if (updateOp instanceof SetAtIndexOp) {
 
@@ -158,18 +158,19 @@ public class UpdateMapper extends QueryMapper {
 			Assert.state(op.getValue() != null,
 					() -> String.format("SetAtIndexOp for %s attempts to set null", field.getProperty()));
 
-			Object mappedValue = getConverter().convertToColumnType(op.getValue(), typeInformation);
+			Object mappedValue = getConverter().convertToColumnType(op.getValue(), descriptor);
 
 			return new SetAtIndexOp(field.getMappedKey(), op.getIndex(), mappedValue);
 		}
 
-		if (rawValue instanceof Collection && typeInformation.isCollectionLike()) {
+		if (rawValue instanceof Collection && descriptor.isCollectionLike()) {
 
 			Collection<?> collection = (Collection) rawValue;
 
 			if (collection.isEmpty()) {
 
-				int protocolCode = field.getProperty().map(property -> getMappingContext().getDataType(property))
+				int protocolCode = field.getProperty()
+						.map(property -> getConverter().getColumnTypeResolver().resolve(property).getDataType())
 						.map(DataType::getProtocolCode).orElse(ProtocolConstants.DataType.LIST);
 
 				if (protocolCode == ProtocolConstants.DataType.SET) {
@@ -180,7 +181,7 @@ public class UpdateMapper extends QueryMapper {
 			}
 		}
 
-		Object mappedValue = rawValue == null ? null : getConverter().convertToColumnType(rawValue, typeInformation);
+		Object mappedValue = rawValue == null ? null : getConverter().convertToColumnType(rawValue, descriptor);
 
 		return new SetOp(field.getMappedKey(), mappedValue);
 	}
@@ -188,8 +189,8 @@ public class UpdateMapper extends QueryMapper {
 	private AssignmentOp getMappedUpdateOperation(Field field, RemoveOp updateOp) {
 
 		Object value = updateOp.getValue();
-		TypeInformation<?> typeInformation = getTypeInformation(field, value);
-		Object mappedValue = getConverter().convertToColumnType(value, typeInformation);
+		ColumnType descriptor = getColumnType(field, value, null);
+		Object mappedValue = getConverter().convertToColumnType(value, descriptor);
 
 		return new RemoveOp(field.getMappedKey(), mappedValue);
 	}
@@ -198,12 +199,12 @@ public class UpdateMapper extends QueryMapper {
 	private AssignmentOp getMappedUpdateOperation(Field field, AddToOp updateOp) {
 
 		Iterable<Object> value = updateOp.getValue();
-		TypeInformation<?> typeInformation = getTypeInformation(field, value);
-		Collection<Object> mappedValue = (Collection) getConverter().convertToColumnType(value, typeInformation);
+		ColumnType descriptor = getColumnType(field, value, null);
+		Collection<Object> mappedValue = (Collection) getConverter().convertToColumnType(value, descriptor);
 
 		if (field.getProperty().isPresent()) {
 
-			DataType dataType = getMappingContext().getDataType(field.getProperty().get());
+			DataType dataType = getConverter().getColumnTypeResolver().resolve(field.getProperty().get()).getDataType();
 
 			if (dataType instanceof SetType && !(mappedValue instanceof Set)) {
 				Collection<Object> collection = new HashSet<>();

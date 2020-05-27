@@ -1,6 +1,79 @@
 Spring Data Cassandra Changelog
 ===============================
 
+Changes in version 3.0.0.RELEASE (2020-05-12)
+---------------------------------------------
+* DATACASS-760 - Upgrade to Cassandra driver 4.6.1.
+* DATACASS-758 - Upgrade to Cassandra driver 4.6.0.
+* DATACASS-757 - Remove Travis CI.
+* DATACASS-756 - Release 3.0 GA (Neumann).
+
+
+Changes in version 3.0.0.RC2 (2020-04-28)
+-----------------------------------------
+* DATACASS-753 - Deferred Session retrieval from ReactiveSessionFactory.
+* DATACASS-749 - Release 3.0 RC2 (Neumann).
+* DATACASS-465 - Add mapping for frozen collections.
+* DATACASS-387 - Remove default bean creation when using XML configuration.
+* DATACASS-167 - Support for embeddable types.
+
+
+Changes in version 2.2.7.RELEASE (2020-04-28)
+---------------------------------------------
+* DATACASS-747 - Identifiers starting with underscore are not quoted.
+* DATACASS-746 - Release 2.2.7 (Moore SR7).
+
+
+Changes in version 2.1.17.RELEASE (2020-04-28)
+----------------------------------------------
+* DATACASS-747 - Identifiers starting with underscore are not quoted.
+* DATACASS-735 - Using long numbers with Update.incr(…) cause integer overflow.
+* DATACASS-733 - Release 2.1.17 (Lovelace SR17).
+
+
+Changes in version 3.0.0.RC1 (2020-03-31)
+-----------------------------------------
+* DATACASS-748 - Upgrade to Cassandra driver 4.5.1.
+* DATACASS-747 - Identifiers starting with underscore are not quoted.
+* DATACASS-743 - Converter should not ignore @CassandraType for collection like type.
+* DATACASS-741 - Add support for @Value.
+* DATACASS-739 - Include custom conversions documentation from Commons.
+* DATACASS-737 - Release 3.0 RC1 (Neumann).
+* DATACASS-470 - Move Cassandra type resolution into MappingCassandraConverter.
+* DATACASS-84 - Provide support for naming strategies.
+
+
+Changes in version 2.2.6.RELEASE (2020-03-25)
+---------------------------------------------
+* DATACASS-735 - Using long numbers with Update.incr(…) cause integer overflow.
+* DATACASS-734 - Release 2.2.6 (Moore SR6).
+
+
+Changes in version 3.0.0.M4 (2020-03-11)
+----------------------------------------
+* DATACASS-736 - Upgrade to Cassandra driver 4.5.0.
+* DATACASS-735 - Using long numbers with Update.incr(…) cause integer overflow.
+* DATACASS-729 - Release 3.0 M4 (Neumann).
+* DATACASS-718 - Integer Overflow using Update.
+* DATACASS-712 - Adapt to query builder API for set at list index, append multiple items to List/Set columns.
+
+
+Changes in version 2.2.5.RELEASE (2020-02-26)
+---------------------------------------------
+* DATACASS-732 - Adapt to Reactor changes.
+* DATACASS-720 - CassandraAdminTemplate.getKeyspaceMetadata() fail for a case-sensitive keyspace.
+* DATACASS-718 - Integer Overflow using Update.
+* DATACASS-716 - Release 2.2.5 (Moore SR5).
+
+
+Changes in version 2.1.16.RELEASE (2020-02-26)
+----------------------------------------------
+* DATACASS-732 - Adapt to Reactor changes.
+* DATACASS-720 - CassandraAdminTemplate.getKeyspaceMetadata() fail for a case-sensitive keyspace.
+* DATACASS-718 - Integer Overflow using Update.
+* DATACASS-715 - Release 2.1.16 (Lovelace SR16).
+
+
 Changes in version 3.0.0.M3 (2020-02-12)
 ----------------------------------------
 * DATACASS-728 - Deprecate Joda-Time and ThreeTenBackport support.
@@ -1139,6 +1212,15 @@ Changes in version 1.0.0.M1 (2014-03-31)
     * [DATACASS-100] - QueryOptions should only have ConsistencyLevel & RetryPolicy
     * [DATACASS-104] - Remove requirement for @PrimaryKeyClass when using composite primary keys
     * [DATACASS-107] - Support declarative query methods
+
+
+
+
+
+
+
+
+
 
 
 

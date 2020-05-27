@@ -35,7 +35,6 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.type.TupleType;
 
 /**
  * Cassandra specific {@link BasicPersistentEntity} implementation that adds Cassandra specific metadata.
@@ -55,6 +54,8 @@ public class BasicCassandraPersistentEntity<T> extends BasicPersistentEntity<T, 
 	private CassandraPersistentEntityMetadataVerifier verifier = DEFAULT_VERIFIER;
 
 	private CqlIdentifier tableName;
+
+	private NamingStrategy namingStrategy = NamingStrategy.INSTANCE;
 
 	private @Nullable StandardEvaluationContext spelContext;
 
@@ -107,13 +108,13 @@ public class BasicCassandraPersistentEntity<T> extends BasicPersistentEntity<T, 
 			return determineName(annotation.value(), annotation.forceQuote());
 		}
 
-		return IdentifierFactory.create(getType().getSimpleName(), false);
+		return IdentifierFactory.create(getNamingStrategy().getTableName(this), false);
 	}
 
 	CqlIdentifier determineName(String value, boolean forceQuote) {
 
 		if (!StringUtils.hasText(value)) {
-			return IdentifierFactory.create(getType().getSimpleName(), forceQuote);
+			return IdentifierFactory.create(getNamingStrategy().getTableName(this), forceQuote);
 		}
 
 		String name = Optional.ofNullable(this.spelContext).map(it -> SpelUtils.evaluate(value, it)).orElse(value);
@@ -200,6 +201,23 @@ public class BasicCassandraPersistentEntity<T> extends BasicPersistentEntity<T, 
 		this.tableName = tableName;
 	}
 
+	/**
+	 * Set the {@link NamingStrategy} to use.
+	 *
+	 * @param namingStrategy must not be {@literal null}.
+	 * @since 3.0
+	 */
+	public void setNamingStrategy(NamingStrategy namingStrategy) {
+
+		Assert.notNull(namingStrategy, "NamingStrategy must not be null");
+
+		this.namingStrategy = namingStrategy;
+	}
+
+	NamingStrategy getNamingStrategy() {
+		return namingStrategy;
+	}
+
 	/* (non-Javadoc)
 	 * @see org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity#getTableName()
 	 */
@@ -232,28 +250,10 @@ public class BasicCassandraPersistentEntity<T> extends BasicPersistentEntity<T, 
 	}
 
 	/* (non-Javadoc)
-	 * @see org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity#getTupleType()
-	 */
-	@Override
-	@Nullable
-	public TupleType getTupleType() {
-		return null;
-	}
-
-	/* (non-Javadoc)
 	 * @see org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity#isUserDefinedType()
 	 */
 	@Override
 	public boolean isUserDefinedType() {
 		return false;
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity#getUserType()
-	 */
-	@Override
-	@Nullable
-	public com.datastax.oss.driver.api.core.type.UserDefinedType getUserType() {
-		return null;
 	}
 }

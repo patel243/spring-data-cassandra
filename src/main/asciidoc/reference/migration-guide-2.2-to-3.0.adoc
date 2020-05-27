@@ -53,6 +53,9 @@ With the upgrade, schema support was moved to a new namespace element: `cassandr
 ----
 ====
 
+NOTE: Spring Data Cassandra 3.0 no longer registers default Mapping Context, Context and Template API beans when using XML namespace configuration.
+The defaulting should be applied on application or Spring Boot level.
+
 == Template API
 
 Spring Data for Apache Cassandra encapsulates most of the changes that come with the driver upgrade as the Template API and repository support if your application mainly interacts with mapped entities or primitive Java types.
@@ -81,7 +84,8 @@ We generally recommend to create `CqlTemplate` and `CassandraTemplate` objects b
 ----
 ====
 
-You will have to adapt your code in all places, where you use DataStax driver API directly. Typical cases include:
+You will have to adapt your code in all places, where you use DataStax driver API directly.
+Typical cases include:
 
 * Implementations of `ResultSetExtractor`
 * Implementations of `RowCallbackHandler`
@@ -139,6 +143,10 @@ Paging state now uses `ByteBuffer`.
 * Introduction of `StatementBuilder` to functionally build statements as the QueryBuilder API uses immutable statement types.
 * `Session` bean renamed from `session` to `cassandraSession` and `SessionFactory` bean renamed from `sessionFactory` to `cassandraSessionFactory`.
 * `ReactiveSession` bean renamed from `reactiveSession` to `reactiveCassandraSession` and `ReactiveSessionFactory` bean renamed from `reactiveSessionFactory` to `reactiveCassandraSessionFactory`.
+* `ReactiveSessionFactory.getSession()` now returns a `Mono<ReactiveSession>`.
+Previously it returned just `ReactiveSession`.
+* Data type resolution was moved into `ColumnTypeResolver` so all `DataType`-related methods were moved from `CassandraPersistentEntity`/`CassandraPersistentProperty` into `ColumnTypeResolver` (affected methods are `MappingContext.getDataType(…)`, `CassandraPersistentProperty.getDataType()`, `CassandraPersistentEntity.getUserType()`, and `CassandraPersistentEntity.getTupleType()`).
+* Schema creation was moved from `MappingContext` to `SchemaFactory` (affected methods are `CassandraMappingContext.getCreateTableSpecificationFor(…)`, `CassandraMappingContext.getCreateIndexSpecificationsFor(…)`, and `CassandraMappingContext.getCreateUserTypeSpecificationFor(…)`).
 
 == Deprecations
 
@@ -151,6 +159,8 @@ Paging state now uses `ByteBuffer`.
 * Spring Data's `CqlIdentifier`, use the driver `CqlIdentifier` instead.
 * `forceQuote` attributes as quoting is no longer required. `CqlIdentifier` properly escapes reserved keywords and takes care of case-sensitivity.
 * `fetchSize` on  `QueryOptions` and `…CqlTemplate` types was deprecated, use `pageSize` instead
+* `CassandraMappingContext.setUserTypeResolver(…)`,  `CassandraMappingContext.setCodecRegistry(…)`, and `CassandraMappingContext.setCustomConversions(…)`: Configure these properties on `CassandraConverter`.
+* `TupleTypeFactory` and `CassandraMappingContext.setTupleTypeFactory(…)`: `TupleTypeFactory` is no longer used as the Cassandra driver ships with a `DataTypes.tupleOf(…)` factory method.
 * Schema creation via `CqlSessionFactoryBean` (`cassandra:session`) is deprecated.
 Keyspace creation via `CqlSessionFactoryBean` (`cassandra:session`) is not affected.
 
@@ -181,6 +191,8 @@ Use execution profiles as replacement.
 * `cql` namespace (`http://www.springframework.org/schema/cql`, use `http://www.springframework.org/schema/data/cassandra` instead)
 * `cassandra:cluster` (endpoint properties merged to `cassandra:session`)
 * `cql:template`, use `cassandra:cql-template` instead
+* Removed implicit bean registrations Mapping Context, Context and Template API beans.
+These must be declared explicitly.
 
 == Additions
 

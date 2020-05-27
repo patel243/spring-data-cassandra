@@ -28,7 +28,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
-
 import org.springframework.data.cassandra.core.mapping.BasicCassandraPersistentEntity;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.Element;
@@ -39,6 +38,7 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.api.core.type.TupleType;
 
 /**
  * Unit tests for mapped tuples through {@link MappingCassandraConverter}.
@@ -67,10 +67,12 @@ public class MappingCassandraConverterMappedTupleUnitTests {
 
 		BasicCassandraPersistentEntity<?> entity = this.mappingContext.getRequiredPersistentEntity(MappedTuple.class);
 
-		TupleValue value = entity.getTupleType().newValue("hello", 1);
+		CassandraColumnType type = mappingCassandraConverter.getColumnTypeResolver().resolve(entity.getTypeInformation());
+
+		TupleValue value = ((TupleType) type.getDataType()).newValue("hello", 1);
 
 		this.rowMock = RowMockUtil.newRowMock(column("name", "Jon Doe", DataTypes.TEXT),
-				column("tuple", value, entity.getTupleType()));
+				column("tuple", value, type.getDataType()));
 
 		Person person = this.mappingCassandraConverter.read(Person.class, rowMock);
 

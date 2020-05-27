@@ -58,8 +58,9 @@ public abstract class AbstractCassandraConfiguration extends AbstractSessionConf
 	private @Nullable ClassLoader beanClassLoader;
 
 	/**
-	 * Creates a {@link CassandraConverter} using the configured {@link #cassandraMapping()}. Will apply all specified
-	 * {@link #customConversions()}.
+	 * Creates a {@link CassandraConverter} using the configured {@link #cassandraMapping()}.
+	 *
+	 * Will apply all specified {@link #customConversions()}.
 	 *
 	 * @return {@link CassandraConverter} used to convert Java and Cassandra value types during the mapping process.
 	 * @see #cassandraMapping()
@@ -68,31 +69,36 @@ public abstract class AbstractCassandraConfiguration extends AbstractSessionConf
 	@Bean
 	public CassandraConverter cassandraConverter() {
 
-		MappingCassandraConverter mappingCassandraConverter =
-				new MappingCassandraConverter(requireBeanOfType(CassandraMappingContext.class));
+		UserTypeResolver userTypeResolver =
+			new SimpleUserTypeResolver(getRequiredSession(), CqlIdentifier.fromCql(getKeyspaceName()));
 
-		mappingCassandraConverter.setCustomConversions(requireBeanOfType(CassandraCustomConversions.class));
+		MappingCassandraConverter converter =
+			new MappingCassandraConverter(requireBeanOfType(CassandraMappingContext.class));
 
-		return mappingCassandraConverter;
+		converter.setCodecRegistry(getRequiredSession().getContext().getCodecRegistry());
+		converter.setUserTypeResolver(userTypeResolver);
+		converter.setCustomConversions(requireBeanOfType(CassandraCustomConversions.class));
+
+		return converter;
 	}
 
 	/**
-	 * Return the {@link MappingContext} instance to map Entities to properties.
+	 * Return the {@link MappingContext} instance to map Entities to {@link Object Java Objects}.
 	 *
-	 * @throws ClassNotFoundException if the Cassandra Entity class type identified by name cannot be found during the
-	 *           scan.
-	 * @see CassandraMappingContext
+	 * @throws ClassNotFoundException if the Cassandra Entity class type identified by name
+	 * cannot be found during the scan.
+	 * @see org.springframework.data.cassandra.core.mapping.CassandraMappingContext
 	 */
 	@Bean
 	public CassandraMappingContext cassandraMapping() throws ClassNotFoundException {
 
 		UserTypeResolver userTypeResolver =
-				new SimpleUserTypeResolver(getRequiredSession(), CqlIdentifier.fromCql(getKeyspaceName()));
+			new SimpleUserTypeResolver(getRequiredSession(), CqlIdentifier.fromCql(getKeyspaceName()));
 
 		CassandraMappingContext mappingContext =
-				new CassandraMappingContext(userTypeResolver, SimpleTupleTypeFactory.DEFAULT);
+			new CassandraMappingContext(userTypeResolver, SimpleTupleTypeFactory.DEFAULT);
 
-		CustomConversions customConversions = requireBeanOfType(CustomConversions.class);
+		CustomConversions customConversions = requireBeanOfType(CassandraCustomConversions.class);
 
 		getBeanClassLoader().ifPresent(mappingContext::setBeanClassLoader);
 
@@ -149,15 +155,15 @@ public abstract class AbstractCassandraConfiguration extends AbstractSessionConf
 	 * @since 1.5
 	 */
 	@Bean
-	public CustomConversions customConversions() {
+	public CassandraCustomConversions customConversions() {
 		return new CassandraCustomConversions(Collections.emptyList());
 	}
 
 	/**
 	 * Configures the Java {@link ClassLoader} used to resolve Cassandra application entity {@link Class types}.
 	 *
-	 * @param classLoader Java {@link ClassLoader} used to resolve Cassandra application entity {@link Class types};
-	 * may be {@literal null}.
+	 * @param classLoader Java {@link ClassLoader} used to resolve Cassandra application entity {@link Class types}; may
+	 *          be {@literal null}.
 	 * @see java.lang.ClassLoader
 	 */
 	@Override

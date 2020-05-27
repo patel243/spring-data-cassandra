@@ -20,8 +20,10 @@ import static org.springframework.data.cassandra.core.mapping.BasicMapId.*;
 import static org.springframework.data.cassandra.test.util.RowMockUtil.*;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -38,7 +40,7 @@ import java.util.*;
 
 import org.junit.Before;
 import org.junit.Test;
-
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.ReadOnlyProperty;
 import org.springframework.data.annotation.Transient;
@@ -46,6 +48,7 @@ import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
 import org.springframework.data.cassandra.core.mapping.BasicMapId;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.CassandraType;
+import org.springframework.data.cassandra.core.mapping.Embedded;
 import org.springframework.data.cassandra.core.mapping.MapId;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyClass;
@@ -68,6 +71,7 @@ import com.datastax.oss.driver.api.core.type.DataTypes;
  * Unit tests for {@link MappingCassandraConverter}.
  *
  * @author Mark Paluch
+ * @author Christoph Strobl
  * @soundtrack Outlandich - Dont Leave Me Feat Cyt (Sun Kidz Electrocore Mix)
  */
 public class MappingCassandraConverterUnitTests {
@@ -123,7 +127,7 @@ public class MappingCassandraConverterUnitTests {
 
 		mappingCassandraConverter.write(enumToOrdinalMapping, insert);
 
-		assertThat(getValues(insert)).contains(Integer.valueOf(Condition.USED.ordinal()));
+		assertThat(getValues(insert)).contains(Condition.USED.ordinal());
 	}
 
 	@Test // DATACASS-255, DATACASS-652
@@ -292,8 +296,7 @@ public class MappingCassandraConverterUnitTests {
 	@Test // DATACASS-280
 	public void shouldReadInetAddressCorrectly() throws UnknownHostException {
 
-		InetAddress localHost = InetAddress.getLocalHost();
-
+		InetAddress localHost = InetAddress.getLoopbackAddress();
 		rowMock = RowMockUtil.newRowMock(column("foo", localHost, DataTypes.UUID));
 
 		InetAddress result = mappingCassandraConverter.readRow(InetAddress.class, rowMock);
@@ -958,6 +961,57 @@ public class MappingCassandraConverterUnitTests {
 				.doesNotContainKey(CqlIdentifier.fromCql("computedName"));
 	}
 
+	@Test // DATACASS-741
+	public void shouldComputeValueInConstructor() {
+
+		rowMock = RowMockUtil.newRowMock(RowMockUtil.column("id", "id", DataTypes.TEXT),
+				RowMockUtil.column("fn", "fn", DataTypes.TEXT));
+
+		WithValue result = this.mappingCassandraConverter.read(WithValue.class, rowMock);
+
+		assertThat(result.id).isEqualTo("id");
+		assertThat(result.firstname).isEqualTo("fn");
+	}
+
+	@Test // DATACASS-743
+	public void shouldConsiderCassandraTypeOnList() {
+
+		TypeWithConvertedCollections value = new TypeWithConvertedCollections();
+		value.conditionList = Arrays.asList(Condition.MINT, Condition.USED);
+
+		Map<CqlIdentifier, Object> insert = new LinkedHashMap<>();
+
+		this.mappingCassandraConverter.write(value, insert);
+
+		assertThat(insert).containsEntry(CqlIdentifier.fromCql("conditionlist"), Arrays.asList(0, 1));
+	}
+
+	@Test // DATACASS-743
+	public void shouldConsiderCassandraTypeOnSet() {
+
+		TypeWithConvertedCollections value = new TypeWithConvertedCollections();
+		value.conditionSet = new LinkedHashSet<>(Arrays.asList(Condition.MINT, Condition.USED));
+
+		Map<CqlIdentifier, Object> insert = new LinkedHashMap<>();
+
+		this.mappingCassandraConverter.write(value, insert);
+
+		assertThat(insert).containsEntry(CqlIdentifier.fromCql("conditionset"), new LinkedHashSet<>(Arrays.asList(0, 1)));
+	}
+
+	@Test // DATACASS-743
+	public void shouldConsiderCassandraTypeOnMap() {
+
+		TypeWithConvertedCollections value = new TypeWithConvertedCollections();
+		value.conditionMap = Collections.singletonMap(Condition.MINT, Condition.USED);
+
+		Map<CqlIdentifier, Object> insert = new LinkedHashMap<>();
+
+		this.mappingCassandraConverter.write(value, insert);
+
+		assertThat(insert).containsEntry(CqlIdentifier.fromCql("conditionmap"), Collections.singletonMap(0, 1));
+	}
+
 	private static List<Object> getValues(Map<CqlIdentifier, Object> statement) {
 		return new ArrayList<>(statement.values());
 	}
@@ -1036,7 +1090,7 @@ public class MappingCassandraConverterUnitTests {
 
 	@PrimaryKeyClass
 	@RequiredArgsConstructor
-	@Value
+	@lombok.Value
 	public static class EnumAndDateCompositePrimaryKey implements Serializable {
 
 		@PrimaryKeyColumn(ordinal = 1, type = PrimaryKeyType.PARTITIONED) private final Condition condition;
@@ -1180,5 +1234,152 @@ public class MappingCassandraConverterUnitTests {
 		String lastname;
 		@Transient String displayName;
 		@ReadOnlyProperty String computedName;
+	}
+
+	public static class TypeWithConvertedCollections {
+
+		@CassandraType(type = CassandraType.Name.LIST,
+				typeArguments = CassandraType.Name.INT) List<Condition> conditionList;
+
+		@CassandraType(type = CassandraType.Name.SET, typeArguments = CassandraType.Name.INT) Set<Condition> conditionSet;
+
+		@CassandraType(type = CassandraType.Name.MAP,
+				typeArguments = { CassandraType.Name.INT, CassandraType.Name.INT }) Map<Condition, Condition> conditionMap;
+
+	}
+
+	static class WithValue {
+
+		final @Id String id;
+		final @Transient String firstname;
+
+		public WithValue(String id, @Value("#root.getString(1)") String firstname) {
+			this.id = id;
+			this.firstname = firstname;
+		}
+	}
+
+	@ToString
+	static class WithNullableEmbeddedType {
+
+		String id;
+
+		@Embedded.Nullable EmbeddedWithSimpleTypes nested;
+	}
+
+	@ToString
+	static class WithPrefixedNullableEmbeddedType {
+
+		String id;
+
+		@Embedded.Nullable("prefix") EmbeddedWithSimpleTypes nested;
+	}
+
+	@ToString
+	static class WithEmptyEmbeddedType {
+
+		String id;
+
+		@Embedded.Empty EmbeddedWithSimpleTypes nested;
+	}
+
+	@ToString
+	@EqualsAndHashCode
+	@NoArgsConstructor
+	@AllArgsConstructor
+	static class EmbeddedWithSimpleTypes {
+
+		String firstname;
+		Integer age;
+		@Transient String displayName;
+	}
+
+	@Test // DATACASS-167
+	public void writeFlattensEmbeddedType() {
+
+		WithNullableEmbeddedType entity = new WithNullableEmbeddedType();
+		entity.id = "id-1";
+		entity.nested = new EmbeddedWithSimpleTypes();
+		entity.nested.firstname = "fn";
+		entity.nested.age = 30;
+		entity.nested.displayName = "dp-name";
+
+		Map<CqlIdentifier, Object> sink = new LinkedHashMap<>();
+
+		mappingCassandraConverter.write(entity, sink);
+
+		assertThat(sink) //
+				.containsEntry(CqlIdentifier.fromCql("id"), "id-1") //
+				.containsEntry(CqlIdentifier.fromCql("age"), 30) //
+				.containsEntry(CqlIdentifier.fromCql("firstname"), "fn") //
+				.doesNotContainKey(CqlIdentifier.fromCql("displayName"));
+	}
+
+	@Test // DATACASS-167
+	public void writePrefixesEmbeddedType() {
+
+		WithPrefixedNullableEmbeddedType entity = new WithPrefixedNullableEmbeddedType();
+		entity.id = "id-1";
+		entity.nested = new EmbeddedWithSimpleTypes();
+		entity.nested.firstname = "fn";
+		entity.nested.age = 30;
+		entity.nested.displayName = "dp-name";
+
+		Map<CqlIdentifier, Object> sink = new LinkedHashMap<>();
+
+		mappingCassandraConverter.write(entity, sink);
+
+		assertThat(sink) //
+				.containsEntry(CqlIdentifier.fromCql("id"), "id-1") //
+				.containsEntry(CqlIdentifier.fromCql("prefixage"), 30) //
+				.containsEntry(CqlIdentifier.fromCql("prefixfirstname"), "fn") //
+				.doesNotContainKey(CqlIdentifier.fromCql("displayName"));
+	}
+
+	@Test // DATACASS-167
+	public void writeNullEmbeddedType() {
+
+		WithNullableEmbeddedType entity = new WithNullableEmbeddedType();
+		entity.id = "id-1";
+		entity.nested = null;
+
+		Map<CqlIdentifier, Object> sink = new LinkedHashMap<>();
+
+		mappingCassandraConverter.write(entity, sink);
+
+		assertThat(sink) //
+				.containsEntry(CqlIdentifier.fromCql("id"), "id-1") //
+				.doesNotContainKey(CqlIdentifier.fromCql("age")) //
+				.doesNotContainKey(CqlIdentifier.fromCql("firstname")) //
+				.doesNotContainKey(CqlIdentifier.fromCql("displayName"));
+	}
+
+	@Test // DATACASS-167
+	public void readEmbeddedType() {
+
+		Row source = RowMockUtil.newRowMock(column("id", "id-1", DataTypes.TEXT), column("age", 30, DataTypes.INT),
+				column("firstname", "fn", DataTypes.TEXT));
+
+		WithNullableEmbeddedType target = mappingCassandraConverter.read(WithNullableEmbeddedType.class, source);
+		assertThat(target.nested).isEqualTo(new EmbeddedWithSimpleTypes("fn", 30, null));
+	}
+
+	@Test // DATACASS-167
+	public void readPrefixedEmbeddedType() {
+
+		Row source = RowMockUtil.newRowMock(column("id", "id-1", DataTypes.TEXT), column("prefixage", 30, DataTypes.INT),
+				column("prefixfirstname", "fn", DataTypes.TEXT));
+
+		WithPrefixedNullableEmbeddedType target = mappingCassandraConverter.read(WithPrefixedNullableEmbeddedType.class, source);
+		assertThat(target.nested).isEqualTo(new EmbeddedWithSimpleTypes("fn", 30, null));
+	}
+
+	@Test // DATACASS-167
+	public void readEmbeddedTypeWhenSourceDoesNotContainValues() {
+
+		Row source = RowMockUtil.newRowMock(column("id", "id-1", DataTypes.TEXT));
+
+		WithNullableEmbeddedType target = mappingCassandraConverter.read(WithNullableEmbeddedType.class, source);
+		assertThat(target.nested).isNull();
 	}
 }

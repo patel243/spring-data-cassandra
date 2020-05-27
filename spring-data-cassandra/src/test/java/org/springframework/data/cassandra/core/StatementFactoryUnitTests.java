@@ -15,7 +15,7 @@
  */
 package org.springframework.data.cassandra.core;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import org.springframework.data.annotation.Id;
@@ -306,8 +305,7 @@ public class StatementFactoryUnitTests {
 				.isEqualTo("UPDATE person USING TIMESTAMP 1234 SET first_name='baz' WHERE foo='bar'");
 	}
 
-	@Test // DATACASS-343
-	@Ignore("No operator for set at index yet")
+	@Test // DATACASS-343, DATACASS-712
 	public void shouldCreateSetAtIndexUpdate() {
 
 		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
@@ -339,8 +337,8 @@ public class StatementFactoryUnitTests {
 
 		Update update = Update.empty().addTo("list").prependAll("foo", "Euro");
 
-		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder =
-				statementFactory.update(Query.empty(), update, personEntity);
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder = statementFactory
+				.update(Query.empty(), update, personEntity);
 
 		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery())
 				.isEqualTo("UPDATE person SET list=['foo','Euro']+list");
@@ -351,8 +349,8 @@ public class StatementFactoryUnitTests {
 
 		Update update = Update.empty().addTo("list").appendAll("foo", "Euro");
 
-		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder =
-				statementFactory.update(Query.empty(), update, personEntity);
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder = statementFactory
+				.update(Query.empty(), update, personEntity);
 
 		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery())
 				.isEqualTo("UPDATE person SET list=list+['foo','Euro']");
@@ -363,10 +361,11 @@ public class StatementFactoryUnitTests {
 
 		Update update = Update.empty().remove("list", "Euro");
 
-		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder =
-				statementFactory.update(Query.empty(), update, personEntity);
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder = statementFactory
+				.update(Query.empty(), update, personEntity);
 
-		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET list=list-['Euro']");
+		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("UPDATE person SET list=list-['Euro']");
 	}
 
 	@Test // DATACASS-343
@@ -383,8 +382,8 @@ public class StatementFactoryUnitTests {
 
 		Update update = Update.empty().addTo("set").appendAll("foo", "Euro");
 
-		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder =
-				statementFactory.update(Query.empty(), update, personEntity);
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder = statementFactory
+				.update(Query.empty(), update, personEntity);
 
 		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery())
 				.isEqualTo("UPDATE person SET set_col=set_col+{'foo','Euro'}");
@@ -395,10 +394,11 @@ public class StatementFactoryUnitTests {
 
 		Update update = Update.empty().remove("set", "Euro");
 
-		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder =
-				statementFactory.update(Query.empty(), update, personEntity);
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> updateStatementBuilder = statementFactory
+				.update(Query.empty(), update, personEntity);
 
-		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET set_col=set_col-{'Euro'}");
+		assertThat(updateStatementBuilder.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("UPDATE person SET set_col=set_col-{'Euro'}");
 	}
 
 	@Test // DATACASS-343
@@ -419,6 +419,16 @@ public class StatementFactoryUnitTests {
 		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number+=1");
 	}
 
+	@Test // DATACASS-735
+	public void shouldCreateIncrementLongUpdate() {
+
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
+				.update(Query.empty(), Update.empty().increment("number", Long.MAX_VALUE), personEntity);
+
+		assertThat(update.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("UPDATE person SET number+=" + Long.MAX_VALUE);
+	}
+
 	@Test // DATACASS-343
 	public void shouldCreateDecrementUpdate() {
 
@@ -426,6 +436,16 @@ public class StatementFactoryUnitTests {
 				.update(Query.empty(), Update.empty().decrement("number"), personEntity);
 
 		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number-=1");
+	}
+
+	@Test // DATACASS-735
+	public void shouldCreateDecrementLongUpdate() {
+
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
+				.update(Query.empty(), Update.empty().decrement("number", Long.MAX_VALUE), personEntity);
+
+		assertThat(update.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("UPDATE person SET number-=" + Long.MAX_VALUE);
 	}
 
 	@Test // DATACASS-569

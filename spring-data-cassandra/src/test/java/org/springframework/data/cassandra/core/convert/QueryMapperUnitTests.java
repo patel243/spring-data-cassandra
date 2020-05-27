@@ -20,6 +20,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 
 import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -36,12 +37,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-
 import org.springframework.data.annotation.Id;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
 import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.Element;
+import org.springframework.data.cassandra.core.mapping.Embedded;
 import org.springframework.data.cassandra.core.mapping.Tuple;
 import org.springframework.data.cassandra.core.mapping.UserDefinedType;
 import org.springframework.data.cassandra.core.mapping.UserTypeResolver;
@@ -216,7 +217,7 @@ public class QueryMapperUnitTests {
 	@Test // DATACASS-343
 	public void shouldMapCollectionApplyingUdtValueCollectionConversion() {
 
-		Query query = Query.query(Criteria.where("addresses").in(new Address("21 Jump-Street")));
+		Query query = Query.query(Criteria.where("address").in(new Address("21 Jump-Street")));
 
 		Filter mappedObject = queryMapper.getMappedObject(query, persistentEntity);
 
@@ -352,8 +353,7 @@ public class QueryMapperUnitTests {
 		Filter mappedObject = this.queryMapper.getMappedObject(filter,
 				this.mappingContext.getRequiredPersistentEntity(Person.class));
 
-		TupleValue tupleValue = this.mappingContext.getRequiredPersistentEntity(MappedTuple.class).getTupleType()
-				.newValue();
+		TupleValue tupleValue = DataTypes.tupleOf(DataTypes.TEXT).newValue();
 
 		tupleValue.setString(0, "foo");
 
@@ -377,6 +377,28 @@ public class QueryMapperUnitTests {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> this.queryMapper.getMappedObject(Filter.from(Criteria.where("tuple.zip").is("123")),
 						this.mappingContext.getRequiredPersistentEntity(Person.class)));
+	}
+
+	@Test // DATACASS-167
+	public void shouldMapEmbeddedType() {
+
+		Filter filter = Filter.from(Criteria.where("nested.firstname").is("spring"));
+
+		Filter mappedObject = this.queryMapper.getMappedObject(filter,
+				this.mappingContext.getRequiredPersistentEntity(WithNullableEmbeddedType.class));
+
+		assertThat(mappedObject.iterator().next().getColumnName()).isEqualTo(ColumnName.from("firstname"));
+	}
+
+	@Test // DATACASS-167
+	public void shouldMapPrefixedEmbeddedType() {
+
+		Filter filter = Filter.from(Criteria.where("nested.firstname").is("spring"));
+
+		Filter mappedObject = this.queryMapper.getMappedObject(filter,
+				this.mappingContext.getRequiredPersistentEntity(WithPrefixedNullableEmbeddedType.class));
+
+		assertThat(mappedObject.iterator().next().getColumnName()).isEqualTo(ColumnName.from("prefixfirstname"));
 	}
 
 	static class Person {
@@ -413,5 +435,28 @@ public class QueryMapperUnitTests {
 
 	enum State {
 		Active, Inactive;
+	}
+
+	@Data
+	static class WithNullableEmbeddedType {
+
+		@Id String id;
+
+		@Embedded.Nullable EmbeddedWithSimpleTypes nested;
+	}
+
+	@Data
+	static class WithPrefixedNullableEmbeddedType {
+
+		@Id String id;
+
+		@Embedded.Nullable(prefix = "prefix") EmbeddedWithSimpleTypes nested;
+	}
+
+	@Data
+	static class EmbeddedWithSimpleTypes {
+
+		String firstname;
+		Integer age;
 	}
 }

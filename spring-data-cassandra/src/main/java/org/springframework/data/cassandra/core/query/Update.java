@@ -39,6 +39,7 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  * </pre>
  *
  * @author Mark Paluch
+ * @author Chema Vinacua
  * @since 2.0
  */
 public class Update {
@@ -186,6 +187,12 @@ public class Update {
 	 */
 	public Update decrement(String columnName, Number delta) {
 
+		if (delta instanceof Integer || delta instanceof Long) {
+
+			long deltaValue = delta.longValue() > 0 ? -Math.abs(delta.longValue()) : delta.longValue();
+			return add(new IncrOp(ColumnName.from(columnName), deltaValue));
+		}
+
 		double deltaValue = delta.doubleValue();
 
 		deltaValue = deltaValue > 0 ? -Math.abs(deltaValue) : deltaValue;
@@ -210,7 +217,8 @@ public class Update {
 		return new Update(map);
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
@@ -516,7 +524,8 @@ public class Update {
 			return this.mode;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override
@@ -549,7 +558,8 @@ public class Update {
 			return value;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override
@@ -575,7 +585,8 @@ public class Update {
 			return value;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override
@@ -604,8 +615,9 @@ public class Update {
 			return index;
 		}
 
-		/* (non-Javadoc)
-		 * @see org.springframework.data.cassandra.core.query.Update.SetOp#toString()
+		/*
+		 * (non-Javadoc)
+		 * @see java.lang.Object#toString()
 		 */
 		@Override
 		public String toString() {
@@ -640,8 +652,9 @@ public class Update {
 			return value;
 		}
 
-		/* (non-Javadoc)
-		 * @see org.springframework.data.cassandra.core.query.Update.SetOp#toString()
+		/*
+		 * (non-Javadoc)
+		 * @see java.lang.Object#toString()
 		 */
 		@Override
 		public String toString() {
@@ -665,13 +678,14 @@ public class Update {
 			return value;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override
 		public String toString() {
 			return String.format("%s = %s %s %d", getColumnName(), getColumnName(), value.doubleValue() > 0 ? "+" : "-",
-					Math.abs(value.intValue()));
+					Math.abs(value.longValue()));
 		}
 	}
 
@@ -695,7 +709,8 @@ public class Update {
 			return value;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override

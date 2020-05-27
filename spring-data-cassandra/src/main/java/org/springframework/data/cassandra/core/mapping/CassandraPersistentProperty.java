@@ -19,14 +19,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedType;
 
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.cassandra.core.cql.Ordering;
 import org.springframework.data.mapping.PersistentProperty;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.type.DataType;
 
 /**
  * Cassandra specific {@link org.springframework.data.mapping.PersistentProperty} extension.
@@ -36,6 +34,7 @@ import com.datastax.oss.driver.api.core.type.DataType;
  * @author David T. Webb
  * @author Mark Paluch
  * @author John Blum
+ * @author Christoph Strobl
  */
 public interface CassandraPersistentProperty
 		extends PersistentProperty<CassandraPersistentProperty>, ApplicationContextAware {
@@ -87,15 +86,6 @@ public interface CassandraPersistentProperty
 
 		return columnName;
 	}
-
-	/**
-	 * The column's data type. Not valid for a composite primary key.
-	 *
-	 * @return the Cassandra {@link DataType}
-	 * @throws InvalidDataAccessApiUsageException if the {@link DataType} cannot be resolved
-	 * @see CassandraType
-	 */
-	DataType getDataType();
 
 	/**
 	 * Whether to force-quote the column names of this property.
@@ -167,6 +157,14 @@ public interface CassandraPersistentProperty
 	 * @see #isClusterKeyColumn()
 	 */
 	boolean isPrimaryKeyColumn();
+
+	/**
+	 * @return {@literal true} if the property should be embedded.
+	 * @since 3.0
+	 */
+	default boolean isEmbedded() {
+		return findAnnotation(Embedded.class) != null && isEntity();
+	}
 
 	/**
 	 * Find an {@link AnnotatedType} by {@code annotationType} derived from the property type. Annotated type is looked up
