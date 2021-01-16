@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 the original author or authors.
+ * Copyright 2020-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 //@formatter:off
 public class CqlTemplateExamples {
 
-	CqlTemplate cqlTemplate = null;
+	private CqlTemplate cqlTemplate = null;
 
 	void examples() {
 		// tag::rowCount[]
@@ -74,10 +74,17 @@ public class CqlTemplateExamples {
 					}
 				});
 		// end::listOfRowMapper[]
+
+		// tag::preparedStatement[]
+		List<String> lastNames = cqlTemplate.query(
+				session -> session.prepare("SELECT last_name FROM t_actor WHERE id = ?"),
+				ps -> ps.bind(1212L),
+				(row, rowNum) -> row.getString(0));
+		// end::preparedStatement[]
 	}
 
 	// tag::findAllActors[]
-	public List<Actor> findAllActors() {
+	List<Actor> findAllActors() {
 		return cqlTemplate.query("SELECT first_name, last_name FROM t_actor", ActorMapper.INSTANCE);
 	}
 
@@ -131,10 +138,10 @@ public class CqlTemplateExamples {
 
 	static class Actor {
 
-		public void setFirstName(String first_name) {
+		void setFirstName(String first_name) {
 
 		}
 
-		public void setLastName(String last_name) {}
+		void setLastName(String last_name) {}
 	}
 }

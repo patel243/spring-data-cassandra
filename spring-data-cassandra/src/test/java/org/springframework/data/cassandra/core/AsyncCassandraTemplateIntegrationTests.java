@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.Future;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.convert.MappingCassandraConverter;
 import org.springframework.data.cassandra.core.cql.AsyncCqlTemplate;
@@ -35,7 +35,7 @@ import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.data.cassandra.domain.User;
 import org.springframework.data.cassandra.domain.UserToken;
 import org.springframework.data.cassandra.repository.support.SchemaTestUtils;
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.util.concurrent.ListenableFuture;
@@ -47,16 +47,17 @@ import com.datastax.oss.driver.api.core.uuid.Uuids;
  *
  * @author Mark Paluch
  */
-public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
+class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
 
 	private AsyncCassandraTemplate template;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		MappingCassandraConverter converter = new MappingCassandraConverter();
 		CassandraTemplate cassandraTemplate = new CassandraTemplate(session, converter);
 		template = new AsyncCassandraTemplate(new AsyncCqlTemplate(session), converter);
+		prepareTemplate(template);
 
 		SchemaTestUtils.potentiallyCreateTableFor(User.class, cassandraTemplate);
 		SchemaTestUtils.potentiallyCreateTableFor(UserToken.class, cassandraTemplate);
@@ -64,8 +65,17 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 		SchemaTestUtils.truncate(UserToken.class, cassandraTemplate);
 	}
 
+	/**
+	 * Post-process the {@link AsyncCassandraTemplate} before running the tests.
+	 *
+	 * @param template
+	 */
+	void prepareTemplate(AsyncCassandraTemplate template) {
+		template.setUsePreparedStatements(false);
+	}
+
 	@Test // DATACASS-343
-	public void shouldSelectByQueryWithSorting() {
+	void shouldSelectByQueryWithSorting() {
 
 		UserToken token1 = new UserToken();
 		token1.setUserId(Uuids.endOf(System.currentTimeMillis()));
@@ -86,7 +96,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-343
-	public void shouldSelectOneByQuery() {
+	void shouldSelectOneByQuery() {
 
 		UserToken token1 = new UserToken();
 		token1.setUserId(Uuids.endOf(System.currentTimeMillis()));
@@ -101,7 +111,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void insertShouldInsertEntity() {
+	void insertShouldInsertEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -114,7 +124,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-250
-	public void insertShouldCreateEntityWithLwt() {
+	void insertShouldCreateEntityWithLwt() {
 
 		InsertOptions lwtOptions = InsertOptions.builder().withIfNotExists().build();
 
@@ -126,7 +136,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-250
-	public void insertShouldNotUpdateEntityWithLwt() {
+	void insertShouldNotUpdateEntityWithLwt() {
 
 		InsertOptions lwtOptions = InsertOptions.builder().withIfNotExists().build();
 
@@ -143,7 +153,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void shouldInsertAndCountEntities() {
+	void shouldInsertAndCountEntities() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -155,7 +165,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-512
-	public void shouldInsertEntityAndCountByQuery() {
+	void shouldInsertEntityAndCountByQuery() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -166,7 +176,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-512
-	public void shouldInsertEntityAndExistsByQuery() {
+	void shouldInsertEntityAndExistsByQuery() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -177,7 +187,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void updateShouldUpdateEntity() {
+	void updateShouldUpdateEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -191,7 +201,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void updateShouldNotCreateEntityWithLwt() {
+	void updateShouldNotCreateEntityWithLwt() {
 
 		UpdateOptions lwtOptions = UpdateOptions.builder().withIfExists().build();
 
@@ -204,7 +214,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void updateShouldUpdateEntityWithLwt() throws InterruptedException {
+	void updateShouldUpdateEntityWithLwt() throws InterruptedException {
 
 		UpdateOptions lwtOptions = UpdateOptions.builder().withIfExists().build();
 
@@ -220,7 +230,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-343
-	public void updateShouldUpdateEntityByQuery() {
+	void updateShouldUpdateEntityByQuery() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -234,7 +244,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-343
-	public void deleteByQueryShouldRemoveEntity() {
+	void deleteByQueryShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -246,7 +256,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-343
-	public void deleteColumnsByQueryShouldRemoveColumn() {
+	void deleteColumnsByQueryShouldRemoveColumn() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -261,7 +271,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void deleteShouldRemoveEntity() {
+	void deleteShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -273,7 +283,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-292
-	public void deleteByIdShouldRemoveEntity() {
+	void deleteByIdShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		getUninterruptibly(template.insert(user));
@@ -285,7 +295,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-606
-	public void deleteShouldRemoveEntityWithLwt() {
+	void deleteShouldRemoveEntityWithLwt() {
 
 		DeleteOptions lwtOptions = DeleteOptions.builder().withIfExists().build();
 
@@ -296,7 +306,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-606
-	public void deleteByQueryShouldRemoveEntityWithLwt() {
+	void deleteByQueryShouldRemoveEntityWithLwt() {
 
 		DeleteOptions lwtOptions = DeleteOptions.builder().withIfExists().build();
 
@@ -309,7 +319,7 @@ public class AsyncCassandraTemplateIntegrationTests extends AbstractKeyspaceCrea
 	}
 
 	@Test // DATACASS-56
-	public void shouldPageRequests() {
+	void shouldPageRequests() {
 
 		Set<String> expectedIds = new LinkedHashSet<>();
 

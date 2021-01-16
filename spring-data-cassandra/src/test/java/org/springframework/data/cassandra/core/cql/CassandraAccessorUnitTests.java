@@ -1,5 +1,5 @@
 /*
- *  Copyright 2016-2020 the original author or authors.
+ *  Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ package org.springframework.data.cassandra.core.cql;
 
 import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 
 /**
@@ -31,22 +32,23 @@ import com.datastax.oss.driver.api.core.CqlSession;
  *
  * @author John Blum
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
-@RunWith(MockitoJUnitRunner.class)
-public class CassandraAccessorUnitTests {
+@ExtendWith(MockitoExtension.class)
+class CassandraAccessorUnitTests {
 
 	private CassandraAccessor cassandraAccessor;
 
 	@Mock private CassandraExceptionTranslator mockExceptionTranslator;
 	@Mock private CqlSession mockSession;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		cassandraAccessor = new CassandraAccessor();
 	}
 
 	@Test // DATACASS-286, DATACASS-330
-	public void afterPropertiesSetWithUnitializedSessionThrowsIllegalStateException() {
+	void afterPropertiesSetWithUnitializedSessionThrowsIllegalStateException() {
 
 		try {
 			cassandraAccessor.afterPropertiesSet();
@@ -57,14 +59,14 @@ public class CassandraAccessorUnitTests {
 	}
 
 	@Test // DATACASS-286
-	public void setAndGetExceptionTranslator() {
+	void setAndGetExceptionTranslator() {
 
 		cassandraAccessor.setExceptionTranslator(mockExceptionTranslator);
 		assertThat(cassandraAccessor.getExceptionTranslator()).isSameAs(mockExceptionTranslator);
 	}
 
 	@Test // DATACASS-286
-	public void setExceptionTranslatorToNullThrowsIllegalArgumentException() {
+	void setExceptionTranslatorToNullThrowsIllegalArgumentException() {
 
 		try {
 			cassandraAccessor.setExceptionTranslator(null);
@@ -75,14 +77,14 @@ public class CassandraAccessorUnitTests {
 	}
 
 	@Test // DATACASS-286
-	public void setAndGetSession() {
+	void setAndGetSession() {
 
 		cassandraAccessor.setSession(mockSession);
 		assertThat(cassandraAccessor.getSessionFactory().getSession()).isSameAs(mockSession);
 	}
 
 	@Test // DATACASS-286
-	public void setSessionToNullThrowsIllegalArgumentException() {
+	void setSessionToNullThrowsIllegalArgumentException() {
 
 		try {
 			cassandraAccessor.setSession(null);
@@ -93,7 +95,7 @@ public class CassandraAccessorUnitTests {
 	}
 
 	@Test // DATACASS-286, DATACASS-330
-	public void getUninitializedSessionThrowsIllegalStateException() {
+	void getUninitializedSessionThrowsIllegalStateException() {
 
 		try {
 			cassandraAccessor.getSession();
@@ -102,4 +104,14 @@ public class CassandraAccessorUnitTests {
 			assertThat(e).hasMessageContaining("SessionFactory was not properly initialized");
 		}
 	}
+
+	@Test // DATACASS-767
+	void setAndGetKeyspace() {
+
+		CqlIdentifier keyspace = CqlIdentifier.fromCql("ks1");
+		cassandraAccessor.setKeyspace(keyspace);
+
+		assertThat(cassandraAccessor.getKeyspace()).isEqualTo(keyspace);
+	}
+
 }

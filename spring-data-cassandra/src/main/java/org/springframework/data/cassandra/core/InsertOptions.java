@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,28 +24,31 @@ import org.springframework.data.cassandra.core.cql.WriteOptions;
 import org.springframework.lang.Nullable;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 
 /**
  * Extension to {@link WriteOptions} for use with {@code INSERT} operations.
  *
  * @author Mark Paluch
  * @author Lukasz Antoniak
+ * @author Tomasz Lelek
  * @since 2.0
  */
 public class InsertOptions extends WriteOptions {
 
 	private static final InsertOptions EMPTY = new InsertOptionsBuilder().build();
 
-	private boolean ifNotExists;
+	private final boolean ifNotExists;
 
-	private boolean insertNulls;
+	private final boolean insertNulls;
 
 	private InsertOptions(@Nullable ConsistencyLevel consistencyLevel, ExecutionProfileResolver executionProfileResolver,
-			@Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel, Duration timeout, Duration ttl,
-			@Nullable Long timestamp, @Nullable Boolean tracing, boolean ifNotExists, boolean insertNulls) {
+			@Nullable CqlIdentifier keyspace, @Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel,
+			Duration timeout, Duration ttl, @Nullable Long timestamp, @Nullable Boolean tracing, boolean ifNotExists,
+			boolean insertNulls) {
 
-		super(consistencyLevel, executionProfileResolver, pageSize, serialConsistencyLevel, timeout, ttl, timestamp,
-				tracing);
+		super(consistencyLevel, executionProfileResolver, keyspace, pageSize, serialConsistencyLevel, timeout, ttl,
+				timestamp, tracing);
 
 		this.ifNotExists = ifNotExists;
 		this.insertNulls = insertNulls;
@@ -193,6 +196,16 @@ public class InsertOptions extends WriteOptions {
 		@Deprecated
 		public InsertOptionsBuilder fetchSize(int fetchSize) {
 			return (InsertOptionsBuilder) super.fetchSize(fetchSize);
+		}
+
+		/* (non-Javadoc)
+		 * @see org.springframework.data.cassandra.core.cql.WriteOptions.WriteOptionsBuilder#keyspace()
+		 */
+		@Override
+		public InsertOptionsBuilder keyspace(CqlIdentifier keyspace) {
+
+			super.keyspace(keyspace);
+			return this;
 		}
 
 		/* (non-Javadoc)
@@ -360,7 +373,7 @@ public class InsertOptions extends WriteOptions {
 		 * @return a new {@link InsertOptions} with the configured values
 		 */
 		public InsertOptions build() {
-			return new InsertOptions(this.consistencyLevel, this.executionProfileResolver, this.pageSize,
+			return new InsertOptions(this.consistencyLevel, this.executionProfileResolver, this.keyspace, this.pageSize,
 					this.serialConsistencyLevel, this.timeout, this.ttl, this.timestamp, this.tracing, this.ifNotExists,
 					this.insertNulls);
 		}

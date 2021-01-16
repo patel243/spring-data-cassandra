@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link BasicMapId}.
@@ -28,10 +28,10 @@ import org.junit.Test;
  * @author Matthew T. Adams
  * @author Mark Paluch
  */
-public class BasicMapIdUnitTests {
+class BasicMapIdUnitTests {
 
 	@Test
-	public void testMapConstructor() {
+	void testMapConstructor() {
 
 		Map<String, Object> map = new HashMap<>();
 		map.put("field1", "value1");
@@ -39,7 +39,6 @@ public class BasicMapIdUnitTests {
 
 		BasicMapId basicMapId = new BasicMapId(map);
 
-		assertThat(map.get("field1")).isEqualTo(basicMapId.get("field1"));
-		assertThat(map.get("field2")).isEqualTo(basicMapId.get("field2"));
+		assertThat(map).containsEntry("field1", basicMapId.get("field1")).containsEntry("field2", basicMapId.get("field2"));
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.springframework.data.cassandra.repository.query.CassandraParameters.C
 import org.springframework.data.repository.query.Parameter;
 import org.springframework.data.repository.query.Parameters;
 import org.springframework.data.repository.util.QueryExecutionConverters;
+import org.springframework.data.repository.util.ReactiveWrapperConverters;
 import org.springframework.data.repository.util.ReactiveWrappers;
 import org.springframework.lang.Nullable;
 
@@ -164,7 +165,8 @@ public class CassandraParameters extends Parameters<CassandraParameters, Cassand
 		 * @see QueryExecutionConverters
 		 */
 		private static boolean isWrapped(MethodParameter parameter) {
-			return QueryExecutionConverters.supports(parameter.getParameterType());
+			return QueryExecutionConverters.supports(parameter.getParameterType())
+					|| ReactiveWrapperConverters.supports(parameter.getParameterType());
 		}
 
 		/**

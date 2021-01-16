@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,13 @@ import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 
 /**
  * Extension to {@link WriteOptions} for use with {@code DELETE} operations.
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  * @since 2.2
  */
 public class DeleteOptions extends WriteOptions {
@@ -44,11 +46,12 @@ public class DeleteOptions extends WriteOptions {
 	private final @Nullable Filter ifCondition;
 
 	private DeleteOptions(@Nullable ConsistencyLevel consistencyLevel, ExecutionProfileResolver executionProfileResolver,
-			@Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel, Duration timeout, Duration ttl,
-			@Nullable Long timestamp, @Nullable Boolean tracing, boolean ifExists, @Nullable Filter ifCondition) {
+			@Nullable CqlIdentifier keyspace, @Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel,
+			Duration timeout, Duration ttl, @Nullable Long timestamp, @Nullable Boolean tracing, boolean ifExists,
+			@Nullable Filter ifCondition) {
 
-		super(consistencyLevel, executionProfileResolver, pageSize, serialConsistencyLevel, timeout, ttl, timestamp,
-				tracing);
+		super(consistencyLevel, executionProfileResolver, keyspace, pageSize, serialConsistencyLevel, timeout, ttl,
+				timestamp, tracing);
 
 		this.ifExists = ifExists;
 		this.ifCondition = ifCondition;
@@ -196,6 +199,16 @@ public class DeleteOptions extends WriteOptions {
 		}
 
 		/* (non-Javadoc)
+		 * @see org.springframework.data.cassandra.core.cql.WriteOptions.WriteOptionsBuilder#keyspace()
+		 */
+		@Override
+		public DeleteOptionsBuilder keyspace(CqlIdentifier keyspace) {
+
+			super.keyspace(keyspace);
+			return this;
+		}
+
+		/* (non-Javadoc)
 		 * @see org.springframework.data.cassandra.core.cql.WriteOptions.WriteOptionsBuilder#pageSize(int)
 		 */
 		@Override
@@ -305,6 +318,7 @@ public class DeleteOptions extends WriteOptions {
 			return this;
 		}
 
+
 		/**
 		 * Use light-weight transactions by applying {@code IF EXISTS}. Replaces a previous {@link #ifCondition(Filter)}.
 		 *
@@ -366,7 +380,7 @@ public class DeleteOptions extends WriteOptions {
 		 */
 		public DeleteOptions build() {
 
-			return new DeleteOptions(this.consistencyLevel, this.executionProfileResolver, this.pageSize,
+			return new DeleteOptions(this.consistencyLevel, this.executionProfileResolver, this.keyspace, this.pageSize,
 					this.serialConsistencyLevel, this.timeout, this.ttl, this.timestamp, this.tracing, this.ifExists,
 					this.ifCondition);
 		}

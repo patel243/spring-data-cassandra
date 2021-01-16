@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.springframework.data.cassandra.repository.support;
 
 import org.springframework.data.cassandra.config.CqlSessionFactoryBean;
+import org.springframework.data.cassandra.test.util.CassandraExtension;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -27,13 +28,12 @@ class SharedCqlSessionFactoryBean extends CqlSessionFactoryBean {
 
 	@Override
 	protected CqlSession buildSystemSession(CqlSessionBuilder sessionBuilder) {
-
-		return AbstractSpringDataEmbeddedCassandraIntegrationTest.cassandraEnvironment.getSystemSession();
+		return CassandraExtension.currentSystemSession();
 	}
 
 	@Override
 	protected CqlSession buildSession(CqlSessionBuilder sessionBuilder) {
-		CqlSession session = AbstractSpringDataEmbeddedCassandraIntegrationTest.cassandraEnvironment.getSession();
+		CqlSession session = CassandraExtension.currentCqlSession();
 
 		session.execute("USE " + getKeyspaceName());
 		return session;

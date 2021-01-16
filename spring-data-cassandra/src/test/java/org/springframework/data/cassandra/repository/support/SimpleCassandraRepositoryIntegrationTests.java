@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import static org.junit.Assume.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,9 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanClassLoaderAware;
@@ -48,14 +48,13 @@ import org.springframework.data.cassandra.domain.User;
 import org.springframework.data.cassandra.domain.UserToken;
 import org.springframework.data.cassandra.repository.CassandraRepository;
 import org.springframework.data.cassandra.support.CassandraVersion;
-import org.springframework.data.cassandra.test.util.AbstractEmbeddedCassandraIntegrationTest;
+import org.springframework.data.cassandra.test.util.IntegrationTestsSupport;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.repository.query.ExtensionAwareQueryMethodEvaluationContextProvider;
 import org.springframework.data.util.Version;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.ClassUtils;
 
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -64,13 +63,13 @@ import com.datastax.oss.driver.api.core.CqlSession;
  * Integration tests for {@link SimpleCassandraRepository}.
  *
  * @author Mark Paluch
+ * @author Jens Schauder
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration
-public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedCassandraIntegrationTest
+@SpringJUnitConfig
+public class SimpleCassandraRepositoryIntegrationTests extends IntegrationTestsSupport
 		implements BeanClassLoaderAware, BeanFactoryAware {
 
-	static final Version CASSANDRA_3 = Version.parse("3.0");
+	private static final Version CASSANDRA_3 = Version.parse("3.0");
 
 	@Configuration
 	public static class Config extends IntegrationTestConfig {
@@ -108,8 +107,8 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 		this.beanFactory = beanFactory;
 	}
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		factory = new CassandraRepositoryFactory(operations);
 		factory.setRepositoryBaseClass(SimpleCassandraRepository.class);
@@ -134,7 +133,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void existsByIdShouldReturnTrueForExistingObject() {
+	void existsByIdShouldReturnTrueForExistingObject() {
 
 		Boolean exists = repository.existsById(dave.getId());
 
@@ -142,7 +141,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void existsByIdShouldReturnFalseForAbsentObject() {
+	void existsByIdShouldReturnFalseForAbsentObject() {
 
 		boolean exists = repository.existsById("unknown");
 
@@ -150,7 +149,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void existsByMonoOfIdShouldReturnTrueForExistingObject() {
+	void existsByMonoOfIdShouldReturnTrueForExistingObject() {
 
 		boolean exists = repository.existsById(dave.getId());
 
@@ -158,7 +157,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void findByIdShouldReturnObject() {
+	void findByIdShouldReturnObject() {
 
 		Optional<User> User = repository.findById(dave.getId());
 
@@ -166,7 +165,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void findByIdShouldCompleteWithoutValueForAbsentObject() {
+	void findByIdShouldCompleteWithoutValueForAbsentObject() {
 
 		Optional<User> User = repository.findById("unknown");
 
@@ -174,7 +173,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-416
-	public void findAllShouldReturnAllResults() {
+	void findAllShouldReturnAllResults() {
 
 		List<User> Users = repository.findAll();
 
@@ -182,7 +181,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-416
-	public void findAllByIterableOfIdShouldReturnResults() {
+	void findAllByIterableOfIdShouldReturnResults() {
 
 		List<User> Users = repository.findAllById(Arrays.asList(dave.getId(), boyd.getId()));
 
@@ -190,7 +189,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-56
-	public void findAllWithPaging() {
+	void findAllWithPaging() {
 
 		Slice<User> slice = repository.findAll(CassandraPageRequest.first(2));
 
@@ -200,7 +199,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-700
-	public void findAllWithPagingAndSorting() {
+	void findAllWithPagingAndSorting() {
 
 		assumeTrue(cassandraVersion.isGreaterThan(CASSANDRA_3));
 
@@ -232,7 +231,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void countShouldReturnNumberOfRecords() {
+	void countShouldReturnNumberOfRecords() {
 
 		long count = repository.count();
 
@@ -240,7 +239,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-415
-	public void insertEntityShouldInsertEntity() {
+	void insertEntityShouldInsertEntity() {
 
 		repository.deleteAll();
 
@@ -252,7 +251,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-415
-	public void insertIterableOfEntitiesShouldInsertEntity() {
+	void insertIterableOfEntitiesShouldInsertEntity() {
 
 		repository.deleteAll();
 
@@ -262,7 +261,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-573
-	public void saveEntityShouldUpdateExistingEntity() {
+	void saveEntityShouldUpdateExistingEntity() {
 
 		dave.setFirstname("Hello, Dave");
 		dave.setLastname("Bowman");
@@ -282,7 +281,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-560
-	public void saveShouldEmitEvents() {
+	void saveShouldEmitEvents() {
 
 		dave.setFirstname("Hello, Dave");
 		dave.setLastname("Bowman");
@@ -294,7 +293,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void saveEntityShouldInsertNewEntity() {
+	void saveEntityShouldInsertNewEntity() {
 
 		User User = new User("36", "Homer", "Simpson");
 
@@ -308,7 +307,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-416, DATACASS-573
-	public void saveIterableOfNewEntitiesShouldInsertEntity() {
+	void saveIterableOfNewEntitiesShouldInsertEntity() {
 
 		repository.deleteAll();
 
@@ -320,7 +319,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-416
-	public void saveIterableOfMixedEntitiesShouldInsertEntity() {
+	void saveIterableOfMixedEntitiesShouldInsertEntity() {
 
 		User User = new User("36", "Homer", "Simpson");
 
@@ -339,7 +338,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396, DATACASS-416
-	public void deleteAllShouldRemoveEntities() {
+	void deleteAllShouldRemoveEntities() {
 
 		repository.deleteAll();
 
@@ -349,7 +348,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void deleteByIdShouldRemoveEntity() {
+	void deleteByIdShouldRemoveEntity() {
 
 		repository.deleteById(dave.getId());
 
@@ -358,8 +357,18 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 		assertThat(loaded).isEmpty();
 	}
 
+	@Test // DATACASS-825
+	void deleteAllByIdShouldRemoveEntity() {
+
+		repository.deleteAllById(Collections.singletonList(dave.getId()));
+
+		Optional<User> loaded = repository.findById(dave.getId());
+
+		assertThat(loaded).isEmpty();
+	}
+
 	@Test // DATACASS-396
-	public void deleteShouldRemoveEntity() {
+	void deleteShouldRemoveEntity() {
 
 		repository.delete(dave);
 
@@ -369,7 +378,7 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 	}
 
 	@Test // DATACASS-396
-	public void deleteIterableOfEntitiesShouldRemoveEntities() {
+	void deleteIterableOfEntitiesShouldRemoveEntities() {
 
 		repository.deleteAll(Arrays.asList(dave, boyd));
 
@@ -402,11 +411,11 @@ public class SimpleCassandraRepositoryIntegrationTests extends AbstractEmbeddedC
 			events.clear();
 		}
 
-		List<BeforeSaveEvent<User>> getBeforeSave() {
+		private List<BeforeSaveEvent<User>> getBeforeSave() {
 			return filter(BeforeSaveEvent.class);
 		}
 
-		List<AfterSaveEvent<User>> getAfterSave() {
+		private List<AfterSaveEvent<User>> getAfterSave() {
 			return filter(AfterSaveEvent.class);
 		}
 

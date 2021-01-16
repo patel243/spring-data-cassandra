@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.data.cassandra.core.StatementFactory;
+import org.springframework.data.cassandra.core.cql.QueryExtractorDelegate;
 import org.springframework.data.cassandra.core.cql.QueryOptions;
 import org.springframework.data.cassandra.core.cql.QueryOptionsUtil;
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
@@ -31,6 +32,7 @@ import org.springframework.data.cassandra.core.query.Columns;
 import org.springframework.data.cassandra.core.query.Query;
 import org.springframework.data.cassandra.repository.Query.Idempotency;
 import org.springframework.data.mapping.context.MappingContext;
+import org.springframework.data.mapping.model.SpELExpressionEvaluator;
 import org.springframework.data.repository.query.QueryCreationException;
 import org.springframework.data.repository.query.ResultProcessor;
 import org.springframework.data.repository.query.ReturnedType;
@@ -114,7 +116,7 @@ class QueryStatementCreator {
 			SimpleStatement statement = statementFactory.count(query, getPersistentEntity()).build();
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug(String.format("Created query [%s].", statement));
+				LOG.debug(String.format("Created query [%s].", QueryExtractorDelegate.getCql(statement)));
 			}
 
 			return statement;
@@ -141,7 +143,7 @@ class QueryStatementCreator {
 			SimpleStatement statement = statementFactory.delete(query, getPersistentEntity()).build();
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug(String.format("Created query [%s].", statement));
+				LOG.debug(String.format("Created query [%s].", QueryExtractorDelegate.getCql(statement)));
 			}
 
 			return statement;
@@ -168,7 +170,7 @@ class QueryStatementCreator {
 			SimpleStatement statement = statementFactory.select(query.limit(1), getPersistentEntity()).build();
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug(String.format("Created query [%s].", statement));
+				LOG.debug(String.format("Created query [%s].", QueryExtractorDelegate.getCql(statement)));
 			}
 
 			return statement;
@@ -229,11 +231,12 @@ class QueryStatementCreator {
 	 * @param parameterAccessor must not be {@literal null}.
 	 * @return the {@link Statement}.
 	 */
-	SimpleStatement select(StringBasedQuery stringBasedQuery, CassandraParameterAccessor parameterAccessor) {
+	SimpleStatement select(StringBasedQuery stringBasedQuery, CassandraParameterAccessor parameterAccessor,
+			SpELExpressionEvaluator evaluator) {
 
 		try {
 
-			SimpleStatement boundQuery = stringBasedQuery.bindQuery(parameterAccessor, this.queryMethod);
+			SimpleStatement boundQuery = stringBasedQuery.bindQuery(parameterAccessor, evaluator);
 
 			Optional<QueryOptions> queryOptions = Optional.ofNullable(parameterAccessor.getQueryOptions());
 
@@ -252,7 +255,7 @@ class QueryStatementCreator {
 			}
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug(String.format("Created query [%s].", queryToUse));
+				LOG.debug(String.format("Created query [%s].", QueryExtractorDelegate.getCql(queryToUse)));
 			}
 
 			return queryToUse;

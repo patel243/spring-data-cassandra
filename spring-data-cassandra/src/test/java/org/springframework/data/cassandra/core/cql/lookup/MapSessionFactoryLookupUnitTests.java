@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.util.Collections;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.springframework.data.cassandra.SessionFactory;
 import org.springframework.data.cassandra.core.cql.session.lookup.MapSessionFactoryLookup;
 import org.springframework.data.cassandra.core.cql.session.lookup.SessionFactoryLookupFailureException;
@@ -32,13 +33,13 @@ import org.springframework.data.cassandra.core.cql.session.lookup.SessionFactory
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class MapSessionFactoryLookupUnitTests {
+@ExtendWith(MockitoExtension.class)
+class MapSessionFactoryLookupUnitTests {
 
 	@Mock SessionFactory sessionFactory;
 
 	@Test // DATACASS-330
-	public void shouldFailWithUnknownLookup() {
+	void shouldFailWithUnknownLookup() {
 
 		MapSessionFactoryLookup sessionFactoryLookup = new MapSessionFactoryLookup();
 
@@ -51,7 +52,7 @@ public class MapSessionFactoryLookupUnitTests {
 	}
 
 	@Test // DATACASS-330
-	public void shouldResolveSessionFactoryCorrectly() {
+	void shouldResolveSessionFactoryCorrectly() {
 
 		MapSessionFactoryLookup sessionFactoryLookup = new MapSessionFactoryLookup("factory", sessionFactory);
 
@@ -59,7 +60,7 @@ public class MapSessionFactoryLookupUnitTests {
 	}
 
 	@Test // DATACASS-330
-	public void shouldResolveProvidedInConstructorSessionFactoryCorrectly() {
+	void shouldResolveProvidedInConstructorSessionFactoryCorrectly() {
 
 		MapSessionFactoryLookup sessionFactoryLookup = new MapSessionFactoryLookup(
 				Collections.singletonMap("factory", sessionFactory));
@@ -68,7 +69,7 @@ public class MapSessionFactoryLookupUnitTests {
 	}
 
 	@Test // DATACASS-330
-	public void shouldSetSessionFactories() {
+	void shouldSetSessionFactories() {
 
 		MapSessionFactoryLookup sessionFactoryLookup = new MapSessionFactoryLookup();
 
@@ -78,7 +79,7 @@ public class MapSessionFactoryLookupUnitTests {
 	}
 
 	@Test // DATACASS-330
-	public void shouldNotOverwriteFactoriesSettingNull() {
+	void shouldNotOverwriteFactoriesSettingNull() {
 
 		MapSessionFactoryLookup sessionFactoryLookup = new MapSessionFactoryLookup("factory", sessionFactory);
 

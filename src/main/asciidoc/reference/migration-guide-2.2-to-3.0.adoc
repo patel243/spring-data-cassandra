@@ -96,7 +96,7 @@ Typical cases include:
 
 === Changes in `AsyncCqlTemplate`
 
-DataStax driver 4 has changed the result type of queries that are executed asynchronously.
+DataStax driver 4 has changed the result type of queries that are run asynchronously.
 To reflect these changes, you need to adapt your code that provides:
 
 * Implementations of `AsyncSessionCallback`

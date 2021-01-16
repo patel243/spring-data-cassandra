@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ inline fun <reified T : Any> AsyncCqlOperations.queryForObject(cql: String, vara
  * Extension for [AsyncCqlOperations.queryForObject] leveraging reified type parameters.
  */
 fun <T : Any> AsyncCqlOperations.queryForObject(cql: String, vararg args: Any, function: (Row, Int) -> T): ListenableFuture<T?> =
-		queryForObject(cql, function, args)
+		queryForObject(cql, function, *args)
 
 /**
  * Extension for [AsyncCqlOperations.queryForObject] providing a [KClass] based variant.
@@ -113,4 +113,4 @@ inline fun <reified T : Any> AsyncCqlOperations.query(cql: String, vararg args: 
  * variant: `query("...", arg1, argN){ row, i -> }`.
  */
 fun <T : Any> AsyncCqlOperations.query(cql: String, vararg args: Any, function: (Row, Int) -> T): ListenableFuture<List<T>> =
-		query(cql, RowMapper { row, i -> function(row, i) }, *args)
+		query(cql, { row, i -> function(row, i) }, *args)

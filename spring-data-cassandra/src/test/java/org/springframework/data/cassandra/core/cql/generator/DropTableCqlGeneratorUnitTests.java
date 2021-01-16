@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package org.springframework.data.cassandra.core.cql.generator;
 
 import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.data.cassandra.core.cql.keyspace.DropTableSpecification;
 
 /**
@@ -26,24 +26,24 @@ import org.springframework.data.cassandra.core.cql.keyspace.DropTableSpecificati
  * @author Matthew T. Adams
  * @author David Webb
  */
-public class DropTableCqlGeneratorUnitTests {
+class DropTableCqlGeneratorUnitTests {
 
 	/**
 	 * Asserts that the preamble is first & correctly formatted in the given CQL string.
 	 */
-	public static void assertStatement(String tableName, boolean ifExists, String cql) {
-		assertThat(cql.equals("DROP TABLE " + (ifExists ? "IF EXISTS " : "") + tableName + ";")).isTrue();
+	private static void assertStatement(String tableName, boolean ifExists, String cql) {
+		assertThat(cql).isEqualTo("DROP TABLE " + (ifExists ? "IF EXISTS " : "") + tableName + ";");
 	}
 
 	/**
 	 * Convenient base class that other test classes can use so as not to repeat the generics declarations.
 	 */
-	public static abstract class DropTableTest
+	static abstract class DropTableTest
 			extends AbstractTableOperationCqlGeneratorTest<DropTableSpecification, DropTableCqlGenerator> {}
 
-	public static class BasicTest extends DropTableTest {
+	static class BasicTest extends DropTableTest {
 
-		public String name = "mytable";
+		private String name = "mytable";
 
 		public DropTableSpecification specification() {
 			return DropTableSpecification.dropTable(name);
@@ -54,7 +54,7 @@ public class DropTableCqlGeneratorUnitTests {
 		}
 
 		@Test
-		public void test() {
+		void test() {
 			prepare();
 
 			assertStatement(name, false, cql);

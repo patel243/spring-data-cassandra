@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package org.springframework.data.cassandra.repository.forcequote.compositeprimarykey;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.cassandra.repository.config.EnableCassandraRepositories;
 import org.springframework.data.cassandra.repository.support.IntegrationTestConfig;
@@ -25,7 +25,7 @@ import org.springframework.test.context.ContextConfiguration;
  * @author Matthew T. Adams
  */
 @ContextConfiguration
-public class ForceQuotedCompositePrimaryKeyRepositoryJavaConfigIntegrationTests
+class ForceQuotedCompositePrimaryKeyRepositoryJavaConfigIntegrationTests
 		extends ForceQuotedCompositePrimaryKeyRepositoryIntegrationTestsDelegator {
 
 	@Configuration
@@ -33,7 +33,7 @@ public class ForceQuotedCompositePrimaryKeyRepositoryJavaConfigIntegrationTests
 	public static class Config extends IntegrationTestConfig {}
 
 	@Test
-	public void testExplicit() {
+	void testExplicit() {
 		testExplicit(String.format("\"%s\"", Explicit.TABLE_NAME),
 				String.format("\"%s\"", Explicit.STRING_VALUE_COLUMN_NAME),
 				String.format("\"%s\"", ExplicitKey.EXPLICIT_KEY_ZERO), String.format("\"%s\"", ExplicitKey.EXPLICIT_KEY_ONE));

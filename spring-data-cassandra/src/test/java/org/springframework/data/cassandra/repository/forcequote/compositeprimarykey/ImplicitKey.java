@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ public class ImplicitKey implements Serializable {
 
 	private static final long serialVersionUID = 4459456944472099332L;
 
-	@PrimaryKeyColumn(ordinal = 0, type = PrimaryKeyType.PARTITIONED, forceQuote = true) String keyZero;
+	@PrimaryKeyColumn(ordinal = 0, type = PrimaryKeyType.PARTITIONED, forceQuote = true) private String keyZero;
 
-	@PrimaryKeyColumn(ordinal = 1, forceQuote = true) String keyOne;
+	@PrimaryKeyColumn(ordinal = 1, forceQuote = true) private String keyOne;
 
 	public ImplicitKey(String keyZero, String keyOne) {
 		this.keyZero = keyZero;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,14 @@
  */
 package org.springframework.data.cassandra.core.cql;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.datastax.oss.driver.api.core.DriverException;
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
-import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.cql.Statement;
-import com.datastax.oss.driver.api.core.retry.RetryPolicy;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.support.DataAccessUtils;
@@ -39,6 +32,18 @@ import org.springframework.data.cassandra.ReactiveSessionFactory;
 import org.springframework.data.cassandra.core.cql.session.DefaultReactiveSessionFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DriverException;
+import com.datastax.oss.driver.api.core.cql.BatchStatement;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.retry.RetryPolicy;
 
 /**
  * <b>This is the central class in the CQL core package for reactive Cassandra data access.</b> It simplifies the use of
@@ -68,6 +73,7 @@ import org.springframework.util.Assert;
  * <b>NOTE: An instance of this class is thread-safe once configured.</b>
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  * @since 2.0
  * @see PreparedStatementCreator
  * @see PreparedStatementBinder
@@ -80,12 +86,6 @@ import org.springframework.util.Assert;
 public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements ReactiveCqlOperations {
 
 	/**
-	 * If this variable is set to a non-negative value, it will be used for setting the {@code pageSize} property on
-	 * statements used for query processing.
-	 */
-	private int pageSize = -1;
-
-	/**
 	 * If this variable is set to a value, it will be used for setting the {@code consistencyLevel} property on statements
 	 * used for query processing.
 	 */
@@ -96,6 +96,18 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 	 * used for query processing.
 	 */
 	private ExecutionProfileResolver executionProfileResolver = ExecutionProfileResolver.none();
+
+	/**
+	 * If this variable is set to a value, it will be used for setting the {@code keyspace} property on statements used
+	 * for query processing.
+	 */
+	private @Nullable CqlIdentifier keyspace;
+
+	/**
+	 * If this variable is set to a non-negative value, it will be used for setting the {@code pageSize} property on
+	 * statements used for query processing.
+	 */
+	private int pageSize = -1;
 
 	/**
 	 * If this variable is set to a value, it will be used for setting the serial {@code consistencyLevel} property on
@@ -213,6 +225,31 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 	@Deprecated
 	public int getFetchSize() {
 		return getPageSize();
+	}
+
+	/**
+	 * Set the {@link CqlIdentifier keyspace} to be applied on statement-level for this template. If not set, the default
+	 * {@link CqlSession} keyspace will be used.
+	 *
+	 * @param keyspace the keyspace to apply, must not be {@literal null}.
+	 * @see SimpleStatement#setKeyspace(CqlIdentifier)
+	 * @see BatchStatement#setKeyspace(CqlIdentifier)
+	 * @since 3.1
+	 */
+	public void setKeyspace(CqlIdentifier keyspace) {
+
+		Assert.notNull(keyspace, "Keyspace must not be null");
+
+		this.keyspace = keyspace;
+	}
+
+	/**
+	 * @return the {@link CqlIdentifier keyspace} to be applied on statement-level for this template.
+	 * @since 3.1
+	 */
+	@Nullable
+	public CqlIdentifier getKeyspace() {
+		return this.keyspace;
 	}
 
 	/**
@@ -403,7 +440,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		return createFlux(statement, (session, stmt) -> {
 
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing CQL Statement [{}]", statement);
+				logger.debug("Executing statement [{}]", QueryExtractorDelegate.getCql(statement));
 			}
 
 			return session.execute(applyStatementSettings(statement)).flatMapMany(rse::extractData);
@@ -470,8 +507,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		return createMono(statement, (session, executedStatement) -> {
 
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing CQL [{}]", executedStatement);
-
+				logger.debug("Executing statement [{}]", QueryExtractorDelegate.getCql(statement));
 			}
 
 			return session.execute(applyStatementSettings(executedStatement));
@@ -531,14 +567,15 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		Assert.notNull(psc, "ReactivePreparedStatementCreator must not be null");
 		Assert.notNull(rse, "ReactiveResultSetExtractor object must not be null");
 
-		return execute(psc, (session, ps) -> Mono.just(ps).flatMapMany(pps -> {
+		return execute(psc, (session, preparedStatement) -> Mono.just(preparedStatement).flatMapMany(pps -> {
 
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing Prepared CQL Statement [{}]", ps.getQuery());
+				logger.debug("Executing prepared statement [{}]", QueryExtractorDelegate.getCql(preparedStatement));
 			}
 
-			BoundStatement boundStatement = (preparedStatementBinder != null ? preparedStatementBinder.bindValues(ps)
-					: ps.bind());
+			BoundStatement boundStatement = (preparedStatementBinder != null
+					? preparedStatementBinder.bindValues(preparedStatement)
+					: preparedStatement.bind());
 
 			return session.execute(applyStatementSettings(boundStatement));
 		}).flatMap(rse::extractData)).onErrorMap(translateException("Query", getCql(psc)));
@@ -701,7 +738,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		return execute(newReactivePreparedStatementCreator(cql), (session, ps) -> Flux.from(args).flatMap(objects -> {
 
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing Prepared CQL Statement [{}]", cql);
+				logger.debug("Executing prepared CQL statement [{}]", cql);
 			}
 
 			BoundStatement boundStatement = newArgPreparedStatementBinder(objects).bindValues(ps);
@@ -725,7 +762,8 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 	 * @since 2.0.8
 	 */
 	protected ReactivePreparedStatementCreator newReactivePreparedStatementCreator(String cql) {
-		return new SimpleReactivePreparedStatementCreator(cql);
+		return new SimpleReactivePreparedStatementCreator(
+				(SimpleStatement) applyStatementSettings(SimpleStatement.newInstance(cql)));
 	}
 
 	/**
@@ -820,6 +858,7 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 		Statement<?> statementToUse = statement;
 		ConsistencyLevel consistencyLevel = getConsistencyLevel();
 		ConsistencyLevel serialConsistencyLevel = getSerialConsistencyLevel();
+		CqlIdentifier keyspace = getKeyspace();
 		int pageSize = getPageSize();
 
 		if (consistencyLevel != null) {
@@ -832,6 +871,15 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 
 		if (pageSize > -1) {
 			statementToUse = statementToUse.setPageSize(pageSize);
+		}
+
+		if (keyspace != null) {
+			if (statementToUse instanceof BatchStatement) {
+				statementToUse = ((BatchStatement) statementToUse).setKeyspace(keyspace);
+			}
+			if (statementToUse instanceof SimpleStatement) {
+				statementToUse = ((SimpleStatement) statementToUse).setKeyspace(keyspace);
+			}
 		}
 
 		statementToUse = getExecutionProfileResolver().apply(statementToUse);
@@ -870,33 +918,25 @@ public class ReactiveCqlTemplate extends ReactiveCassandraAccessor implements Re
 	 */
 	@Nullable
 	private static String getCql(@Nullable Object cqlProvider) {
-
-		return Optional.ofNullable(cqlProvider) //
-				.filter(o -> o instanceof CqlProvider) //
-				.map(o -> (CqlProvider) o) //
-				.map(CqlProvider::getCql) //
-				.orElse(null);
+		return QueryExtractorDelegate.getCql(cqlProvider);
 	}
 
 	static class SimpleReactivePreparedStatementCreator implements ReactivePreparedStatementCreator, CqlProvider {
 
-		private final String cql;
+		private final SimpleStatement statement;
 
-		SimpleReactivePreparedStatementCreator(String cql) {
-
-			Assert.notNull(cql, "CQL must not be null");
-
-			this.cql = cql;
+		SimpleReactivePreparedStatementCreator(SimpleStatement statement) {
+			this.statement = statement;
 		}
 
 		@Override
 		public Mono<PreparedStatement> createPreparedStatement(ReactiveSession session) throws DriverException {
-			return session.prepare(cql);
+			return session.prepare(this.statement);
 		}
 
 		@Override
 		public String getCql() {
-			return cql;
+			return this.statement.getQuery();
 		}
 	}
 }

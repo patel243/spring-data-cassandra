@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class CassandraConnectionProperties extends Properties {
 
 	private final static List<WeakReference<CassandraConnectionProperties>> instances = new ArrayList<>();
 
-	protected String resourceName;
+	private String resourceName;
 
 	/**
 	 * Create a new {@link CassandraConnectionProperties} using properties from
@@ -63,7 +63,7 @@ public class CassandraConnectionProperties extends Properties {
 		}
 	}
 
-	public static void reload() {
+	private static void reload() {
 		for (WeakReference<CassandraConnectionProperties> ref : instances) {
 
 			CassandraConnectionProperties properties = ref.get();
@@ -73,7 +73,7 @@ public class CassandraConnectionProperties extends Properties {
 		}
 	}
 
-	protected CassandraConnectionProperties(String resourceName) {
+	private CassandraConnectionProperties(String resourceName) {
 
 		this.resourceName = resourceName;
 		loadProperties();
@@ -188,7 +188,7 @@ public class CassandraConnectionProperties extends Properties {
 	 * @param propertyName name of the property, must not be empty and not {@literal null}.
 	 * @return the property value
 	 */
-	public int getInt(String propertyName) {
+	private int getInt(String propertyName) {
 		return convert(propertyName, Integer.class, Integer::parseInt);
 	}
 

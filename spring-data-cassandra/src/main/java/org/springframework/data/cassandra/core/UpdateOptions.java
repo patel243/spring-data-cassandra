@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,14 @@ import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 
 /**
  * Extension to {@link WriteOptions} for use with {@code UPDATE} operations.
  *
  * @author Mark Paluch
  * @author Lukasz Antoniak
+ * @author Tomasz Lelek
  * @since 2.0
  */
 public class UpdateOptions extends WriteOptions {
@@ -45,11 +47,12 @@ public class UpdateOptions extends WriteOptions {
 	private final @Nullable Filter ifCondition;
 
 	private UpdateOptions(@Nullable ConsistencyLevel consistencyLevel, ExecutionProfileResolver executionProfileResolver,
-			@Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel, Duration timeout, Duration ttl,
-			@Nullable Long timestamp, @Nullable Boolean tracing, boolean ifExists, @Nullable Filter ifCondition) {
+			@Nullable CqlIdentifier keyspace, @Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel,
+			Duration timeout, Duration ttl, @Nullable Long timestamp, @Nullable Boolean tracing, boolean ifExists,
+			@Nullable Filter ifCondition) {
 
-		super(consistencyLevel, executionProfileResolver, pageSize, serialConsistencyLevel, timeout, ttl, timestamp,
-				tracing);
+		super(consistencyLevel, executionProfileResolver, keyspace, pageSize, serialConsistencyLevel, timeout, ttl,
+				timestamp, tracing);
 
 		this.ifExists = ifExists;
 		this.ifCondition = ifCondition;
@@ -199,6 +202,16 @@ public class UpdateOptions extends WriteOptions {
 		public UpdateOptionsBuilder fetchSize(int fetchSize) {
 
 			super.fetchSize(fetchSize);
+			return this;
+		}
+
+		/* (non-Javadoc)
+		 * @see org.springframework.data.cassandra.core.cql.WriteOptions.WriteOptionsBuilder#keyspace()
+		 */
+		@Override
+		public UpdateOptionsBuilder keyspace(CqlIdentifier keyspace) {
+
+			super.keyspace(keyspace);
 			return this;
 		}
 
@@ -374,8 +387,7 @@ public class UpdateOptions extends WriteOptions {
 		 * @return a new {@link UpdateOptions} with the configured values
 		 */
 		public UpdateOptions build() {
-
-			return new UpdateOptions(this.consistencyLevel, this.executionProfileResolver, this.pageSize,
+			return new UpdateOptions(this.consistencyLevel, this.executionProfileResolver, this.keyspace, this.pageSize,
 					this.serialConsistencyLevel, this.timeout, this.ttl, this.timestamp, this.tracing, this.ifExists,
 					this.ifCondition);
 		}

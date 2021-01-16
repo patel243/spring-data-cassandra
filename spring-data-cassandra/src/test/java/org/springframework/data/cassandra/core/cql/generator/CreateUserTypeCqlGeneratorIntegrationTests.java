@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.springframework.data.cassandra.core.cql.generator;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.data.cassandra.core.cql.generator.CreateUserTypeCqlGenerator.*;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.cql.keyspace.CreateUserTypeSpecification;
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -34,17 +34,17 @@ import com.datastax.oss.driver.api.core.type.UserDefinedType;
  *
  * @author Mark Paluch
  */
-public class CreateUserTypeCqlGeneratorIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
+class CreateUserTypeCqlGeneratorIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	void setUp() throws Exception {
 
 		session.execute("DROP TYPE IF EXISTS person;");
 		session.execute("DROP TYPE IF EXISTS address;");
 	}
 
 	@Test // DATACASS-172
-	public void createUserType() {
+	void createUserType() {
 
 		CreateUserTypeSpecification spec = CreateUserTypeSpecification //
 				.createType("address") //
@@ -59,7 +59,7 @@ public class CreateUserTypeCqlGeneratorIntegrationTests extends AbstractKeyspace
 	}
 
 	@Test // DATACASS-172
-	public void createUserTypeIfNotExists() {
+	void createUserTypeIfNotExists() {
 
 		CreateUserTypeSpecification spec = CreateUserTypeSpecification //
 				.createType("address").ifNotExists().field("zip", DataTypes.ASCII) //
@@ -73,7 +73,7 @@ public class CreateUserTypeCqlGeneratorIntegrationTests extends AbstractKeyspace
 	}
 
 	@Test // DATACASS-172, DATACASS-424
-	public void createNestedUserType() {
+	void createNestedUserType() {
 
 		CreateUserTypeSpecification addressSpec = CreateUserTypeSpecification //
 				.createType("address").ifNotExists().field("zip", DataTypes.ASCII) //

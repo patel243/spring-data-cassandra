@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,22 +22,24 @@ import static org.mockito.Mockito.*;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Wither;
+import lombok.With;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import reactor.core.publisher.Mono;
 
 import java.util.Collections;
 import java.util.Date;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.AdditionalAnswers;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.core.Ordered;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.auditing.IsNewAwareAuditingHandler;
+import org.springframework.data.auditing.ReactiveIsNewAwareAuditingHandler;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.mapping.context.PersistentEntities;
 
@@ -48,33 +50,35 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class ReactiveAuditingEntityCallbackUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class ReactiveAuditingEntityCallbackUnitTests {
 
-	IsNewAwareAuditingHandler handler;
-	ReactiveAuditingEntityCallback callback;
+	private ReactiveIsNewAwareAuditingHandler handler;
+	private ReactiveAuditingEntityCallback callback;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		CassandraMappingContext mappingContext = new CassandraMappingContext();
 		mappingContext.getPersistentEntity(Sample.class);
 
-		handler = spy(new IsNewAwareAuditingHandler(new PersistentEntities(Collections.singletonList(mappingContext))));
+		handler = spy(
+				new ReactiveIsNewAwareAuditingHandler(new PersistentEntities(Collections.singletonList(mappingContext))));
 
-		doAnswer(AdditionalAnswers.returnsArgAt(0)).when(handler).markCreated(any());
-		doAnswer(AdditionalAnswers.returnsArgAt(0)).when(handler).markModified(any());
+		doAnswer(invocation -> Mono.just(invocation.getArgument(0))).when(handler).markCreated(any());
+		doAnswer(invocation -> Mono.just(invocation.getArgument(0))).when(handler).markModified(any());
 
 		callback = new ReactiveAuditingEntityCallback(() -> handler);
 	}
 
 	@Test // DATACASS-4
-	public void rejectsNullAuditingHandler() {
+	void rejectsNullAuditingHandler() {
 		assertThatIllegalArgumentException().isThrownBy(() -> new AuditingEntityCallback(null));
 	}
 
 	@Test // DATACASS-4
-	public void triggersCreationMarkForObjectWithEmptyId() {
+	void triggersCreationMarkForObjectWithEmptyId() {
 
 		Sample sample = new Sample();
 		callback.onBeforeConvert(sample, CqlIdentifier.fromCql("foo"));
@@ -84,7 +88,7 @@ public class ReactiveAuditingEntityCallbackUnitTests {
 	}
 
 	@Test // DATACASS-4
-	public void triggersModificationMarkForObjectWithSetId() {
+	void triggersModificationMarkForObjectWithSetId() {
 
 		Sample sample = new Sample();
 		sample.id = "id";
@@ -95,20 +99,20 @@ public class ReactiveAuditingEntityCallbackUnitTests {
 	}
 
 	@Test // DATACASS-4
-	public void hasExplicitOrder() {
+	void hasExplicitOrder() {
 
 		assertThat(callback).isInstanceOf(Ordered.class);
 		assertThat(callback.getOrder()).isEqualTo(100);
 	}
 
-	@Test // DATACASS-4
-	public void propagatesChangedInstanceToEvent() {
+	@Test // DATACASS-4, DATACASS-784
+	void propagatesChangedInstanceToEvent() {
 
 		ImmutableSample sample = new ImmutableSample();
 
 		ImmutableSample newSample = new ImmutableSample();
-		IsNewAwareAuditingHandler handler = mock(IsNewAwareAuditingHandler.class);
-		doReturn(newSample).when(handler).markAudited(eq(sample));
+		ReactiveIsNewAwareAuditingHandler handler = mock(ReactiveIsNewAwareAuditingHandler.class);
+		doReturn(Mono.just(newSample)).when(handler).markAudited(eq(sample));
 
 		ReactiveAuditingEntityCallback listener = new ReactiveAuditingEntityCallback(() -> handler);
 		Object result = listener.onBeforeConvert(sample, CqlIdentifier.fromCql("foo")).block();
@@ -116,15 +120,15 @@ public class ReactiveAuditingEntityCallbackUnitTests {
 		assertThat(result).isSameAs(newSample);
 	}
 
-	static class Sample {
+	private static class Sample {
 
-		@Id String id;
+		@Id private String id;
 		@CreatedDate Date created;
 		@LastModifiedDate Date modified;
 	}
 
 	@Value
-	@Wither
+	@With
 	@AllArgsConstructor
 	@NoArgsConstructor(force = true)
 	static class ImmutableSample {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 
 /**
@@ -31,19 +32,19 @@ import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
  *
  * @author Mark Paluch
  */
-public class WriteOptionsUnitTests {
+class WriteOptionsUnitTests {
 
-	@Test // DATACASS-202
-	public void buildWriteOptions() {
+	@Test // DATACASS-202, DATACASS-767
+	void buildWriteOptions() {
 
-		WriteOptions writeOptions = WriteOptions.builder()
-				.consistencyLevel(DefaultConsistencyLevel.ANY)
-				.ttl(123)
-				.timestamp(1519000753)
-				.readTimeout(1)
-				.pageSize(10)
-				.withTracing()
-				.build();
+		WriteOptions writeOptions = WriteOptions.builder() //
+				.consistencyLevel(DefaultConsistencyLevel.ANY) //
+				.ttl(123) //
+				.timestamp(1519000753) //
+				.readTimeout(1) //
+				.pageSize(10) //
+				.withTracing() //
+				.keyspace(CqlIdentifier.fromCql("my_keyspace")).build();
 
 		assertThat(writeOptions.getTtl()).isEqualTo(Duration.ofSeconds(123));
 		assertThat(writeOptions.getTimestamp()).isEqualTo(1519000753);
@@ -51,10 +52,11 @@ public class WriteOptionsUnitTests {
 		assertThat(writeOptions.getTimeout()).isEqualTo(Duration.ofMillis(1));
 		assertThat(writeOptions.getPageSize()).isEqualTo(10);
 		assertThat(writeOptions.getTracing()).isTrue();
+		assertThat(writeOptions.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("my_keyspace"));
 	}
 
 	@Test // DATACASS-202
-	public void buildReadTimeoutOptionsWriteOptions() {
+	void buildReadTimeoutOptionsWriteOptions() {
 
 		WriteOptions writeOptions = WriteOptions.builder().timeout(Duration.ofMinutes(1)).build();
 
@@ -63,18 +65,17 @@ public class WriteOptionsUnitTests {
 		assertThat(writeOptions.getTracing()).isNull();
 	}
 
-
 	@Test // DATACASS-56
-	public void buildWriteOptionsMutate() {
+	void buildWriteOptionsMutate() {
 		Instant now = LocalDateTime.now().toInstant(ZoneOffset.UTC);
 
-		WriteOptions writeOptions = WriteOptions.builder()
-				.consistencyLevel(DefaultConsistencyLevel.ANY)
-				.ttl(123)
-				.timestamp(now)
-				.readTimeout(1)
-				.pageSize(10)
-				.withTracing()
+		WriteOptions writeOptions = WriteOptions.builder() //
+				.consistencyLevel(DefaultConsistencyLevel.ANY) //
+				.ttl(123) //
+				.timestamp(now) //
+				.readTimeout(1) //
+				.pageSize(10) //
+				.withTracing() //
 				.build();
 
 		WriteOptions mutated = writeOptions.mutate().timeout(Duration.ofMillis(100)).build();

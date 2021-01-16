@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,13 @@ import lombok.Data;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import org.springframework.data.cassandra.core.mapping.BasicCassandraPersistentEntity;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.Element;
@@ -45,17 +48,18 @@ import com.datastax.oss.driver.api.core.type.TupleType;
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
-public class MappingCassandraConverterMappedTupleUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class MappingCassandraConverterMappedTupleUnitTests {
 
-	CassandraMappingContext mappingContext;
+	private CassandraMappingContext mappingContext;
 
-	MappingCassandraConverter mappingCassandraConverter;
+	private MappingCassandraConverter mappingCassandraConverter;
 
-	Row rowMock;
+	private Row rowMock;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		this.mappingContext = new CassandraMappingContext();
 		this.mappingCassandraConverter = new MappingCassandraConverter(mappingContext);
@@ -63,7 +67,7 @@ public class MappingCassandraConverterMappedTupleUnitTests {
 	}
 
 	@Test // DATACASS-523
-	public void shouldReadMappedTupleValue() {
+	void shouldReadMappedTupleValue() {
 
 		BasicCassandraPersistentEntity<?> entity = this.mappingContext.getRequiredPersistentEntity(MappedTuple.class);
 
@@ -86,7 +90,7 @@ public class MappingCassandraConverterMappedTupleUnitTests {
 	}
 
 	@Test // DATACASS-523
-	public void shouldWriteMappedTuple() {
+	void shouldWriteMappedTuple() {
 
 		MappedTuple tuple = new MappedTuple("hello", 1);
 		Person person = new Person("Jon Doe", tuple);

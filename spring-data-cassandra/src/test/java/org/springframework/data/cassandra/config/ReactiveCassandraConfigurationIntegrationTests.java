@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 the original author or authors.
+ * Copyright 2020-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,44 +17,41 @@ package org.springframework.data.cassandra.config;
 
 import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.cassandra.repository.support.AbstractSpringDataEmbeddedCassandraIntegrationTest;
 import org.springframework.data.cassandra.repository.support.IntegrationTestConfig;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 /**
  * Integration tests for {@link AbstractReactiveCassandraConfiguration}.
  *
  * @author Mark Paluch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration(classes = IntegrationTestConfig.class)
-public class ReactiveCassandraConfigurationIntegrationTests extends AbstractSpringDataEmbeddedCassandraIntegrationTest {
+@SpringJUnitConfig(classes = IntegrationTestConfig.class)
+class ReactiveCassandraConfigurationIntegrationTests extends AbstractSpringDataEmbeddedCassandraIntegrationTest {
 
 	@Autowired BeanFactory beanFactory;
 
 	@Test // DATACASS-713
-	public void shouldContainCassandraSessionBean() {
+	void shouldContainCassandraSessionBean() {
 		assertThat(beanFactory.containsBean(DefaultCqlBeanNames.SESSION)).isTrue();
 	}
 
 	@Test // DATACASS-713
-	public void shouldContainCassandraSessionFactoryBean() {
+	void shouldContainCassandraSessionFactoryBean() {
 		assertThat(beanFactory.containsBean(DefaultCqlBeanNames.SESSION_FACTORY)).isTrue();
 	}
 
 	@Test // DATACASS-713
-	public void shouldContainReactiveCassandraSessionBean() {
+	void shouldContainReactiveCassandraSessionBean() {
 		assertThat(beanFactory.containsBean("reactiveCassandraSession")).isTrue();
 	}
 
 	@Test // DATACASS-713
-	public void shouldContainReactiveCassandraSessionFactoryBean() {
+	void shouldContainReactiveCassandraSessionFactoryBean() {
 		assertThat(beanFactory.containsBean("reactiveCassandraSessionFactory")).isTrue();
 	}
 }

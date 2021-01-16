@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,13 @@ import rx.Single;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.data.cassandra.core.ReactiveCassandraOperations;
 import org.springframework.data.cassandra.core.convert.MappingCassandraConverter;
@@ -47,22 +48,23 @@ import org.springframework.util.ClassUtils;
 
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 
 /**
  * Unit tests for {@link ReactivePartTreeCassandraQuery}.
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class ReactivePartTreeCassandraQueryUnitTests {
+@ExtendWith(MockitoExtension.class)
+class ReactivePartTreeCassandraQueryUnitTests {
 
 	@Mock ReactiveCassandraOperations mockCassandraOperations;
 	@Mock UserTypeResolver userTypeResolver;
 
 	private CassandraMappingContext mappingContext;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		mappingContext = new CassandraMappingContext();
 		mappingContext.setUserTypeResolver(userTypeResolver);
@@ -71,7 +73,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void shouldDeriveSimpleQuery() {
+	void shouldDeriveSimpleQuery() {
 
 		String query = deriveQueryFromMethod("findByLastname", "foo");
 
@@ -79,7 +81,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void shouldDeriveSimpleQueryWithoutNames() {
+	void shouldDeriveSimpleQueryWithoutNames() {
 
 		String query = deriveQueryFromMethod("findPersonBy");
 
@@ -87,7 +89,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void shouldDeriveAndQuery() {
+	void shouldDeriveAndQuery() {
 
 		String query = deriveQueryFromMethod("findByFirstnameAndLastname", "foo", "bar");
 
@@ -95,7 +97,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-376
-	public void shouldAllowFiltering() {
+	void shouldAllowFiltering() {
 
 		String query = deriveQueryFromMethod("findPersonByFirstname", "foo");
 
@@ -103,7 +105,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-335, DATACASS-313
-	public void usesDynamicProjection() {
+	void usesDynamicProjection() {
 
 		String query = deriveQueryFromMethod("findDynamicallyProjectedBy", PersonProjection.class);
 
@@ -111,18 +113,18 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-146
-	public void shouldApplyQueryOptions() {
+	void shouldApplyQueryOptions() {
 
 		QueryOptions queryOptions = QueryOptions.builder().pageSize(777).build();
 		SimpleStatement statement = deriveQueryFromMethod(Repo.class, "findByFirstname",
 				new Class[] { QueryOptions.class, String.class }, queryOptions, "Walter");
 
-		assertThat(statement.getQuery()).isEqualTo("SELECT * FROM person WHERE firstname='Walter'");
+		assertThat(statement.getQuery()).isEqualTo("SELECT * FROM person WHERE firstname=?");
 		assertThat(statement.getPageSize()).isEqualTo(777);
 	}
 
 	@Test // DATACASS-146
-	public void shouldApplyConsistencyLevel() {
+	void shouldApplyConsistencyLevel() {
 
 		SimpleStatement statement = deriveQueryFromMethod(Repo.class, "findPersonBy", new Class[0]);
 
@@ -131,7 +133,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-512
-	public void shouldCreateCountQuery() {
+	void shouldCreateCountQuery() {
 
 		SimpleStatement statement = deriveQueryFromMethod(PartTreeCassandraQueryUnitTests.Repo.class, "countBy",
 				new Class[0]);
@@ -140,16 +142,16 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-611
-	public void shouldCreateDeleteQuery() {
+	void shouldCreateDeleteQuery() {
 
 		SimpleStatement statement = deriveQueryFromMethod(PartTreeCassandraQueryUnitTests.Repo.class, "deleteAllByLastname",
 				new Class[] { String.class }, "Walter");
 
-		assertThat(statement.getQuery()).isEqualTo("DELETE FROM person WHERE lastname='Walter'");
+		assertThat(statement.getQuery()).isEqualTo("DELETE FROM person WHERE lastname=?");
 	}
 
 	@Test // DATACASS-512
-	public void shouldCreateExistsQuery() {
+	void shouldCreateExistsQuery() {
 
 		SimpleStatement statement = deriveQueryFromMethod(PartTreeCassandraQueryUnitTests.Repo.class, "existsBy",
 				new Class[0]);
@@ -165,7 +167,20 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 			types[i] = ClassUtils.getUserClass(args[i].getClass());
 		}
 
-		return deriveQueryFromMethod(Repo.class, method, types, args).getQuery();
+		SimpleStatement statement = deriveQueryFromMethod(Repo.class, method, types, args);
+		String query = statement.getQuery();
+
+		List<Object> positionalValues = statement.getPositionalValues();
+
+		for (Object positionalValue : positionalValues) {
+
+			query = query.replaceFirst("\\?",
+					positionalValue != null
+							? CodecRegistry.DEFAULT.codecFor((Class) positionalValue.getClass()).format(positionalValue)
+							: "NULL");
+		}
+
+		return query;
 	}
 
 	private SimpleStatement deriveQueryFromMethod(Class<?> repositoryInterface, String method, Class<?>[] types,
@@ -176,7 +191,8 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 		CassandraParameterAccessor accessor = new CassandraParametersParameterAccessor(partTreeQuery.getQueryMethod(),
 				args);
 
-		return partTreeQuery.createQuery(new ConvertingParameterAccessor(mockCassandraOperations.getConverter(), accessor));
+		return partTreeQuery.createQuery(new ConvertingParameterAccessor(mockCassandraOperations.getConverter(), accessor))
+				.block();
 	}
 
 	private ReactivePartTreeCassandraQuery createQueryForMethod(Class<?> repositoryInterface, String methodName,
@@ -225,7 +241,7 @@ public class ReactivePartTreeCassandraQueryUnitTests {
 		<T> Single<T> findDynamicallyProjectedBy(Class<T> type);
 	}
 
-	interface PersonProjection {
+	private interface PersonProjection {
 
 		String getFirstname();
 

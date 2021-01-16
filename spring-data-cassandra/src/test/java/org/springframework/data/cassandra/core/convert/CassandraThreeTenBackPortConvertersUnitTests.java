@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,31 @@
  */
 package org.springframework.data.cassandra.core.convert;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.threeten.bp.LocalTime;
 import org.springframework.data.cassandra.core.convert.CassandraThreeTenBackPortConverters.LocalTimeToMillisOfDayConverter;
 import org.springframework.data.cassandra.core.convert.CassandraThreeTenBackPortConverters.MillisOfDayToLocalTimeConverter;
+
+import org.threeten.bp.LocalTime;
 
 /**
  * Unit tests for {@link CassandraThreeTenBackPortConverters}.
  *
  * @author Mark Paluch
  */
-public class CassandraThreeTenBackPortConvertersUnitTests {
+class CassandraThreeTenBackPortConvertersUnitTests {
 
 	@Test // DATACASS-302
-	public void shouldConvertLongToLocalTime() {
+	void shouldConvertLongToLocalTime() {
 
 		assertThat(MillisOfDayToLocalTimeConverter.INSTANCE.convert(3723000L))
 				.isEqualTo(LocalTime.of(1, 2, 3));
 	}
 
 	@Test // DATACASS-302
-	public void shouldConvertLocalTimeToLong() {
+	void shouldConvertLocalTimeToLong() {
 
 		assertThat(LocalTimeToMillisOfDayConverter.INSTANCE.convert(LocalTime.MIDNIGHT)).isZero();
 		assertThat(LocalTimeToMillisOfDayConverter.INSTANCE.convert(LocalTime.of(1, 2, 3)))

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,16 @@ package org.springframework.data.cassandra.repository.query;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import java.lang.reflect.Method;
+import reactor.core.publisher.Mono;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.data.cassandra.ReactiveSession;
 import org.springframework.data.cassandra.core.ReactiveCassandraOperations;
@@ -40,8 +43,11 @@ import org.springframework.data.projection.SpelAwareProxyProjectionFactory;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.core.RepositoryMetadata;
 import org.springframework.data.repository.core.support.AbstractRepositoryMetadata;
-import org.springframework.data.repository.query.ExtensionAwareQueryMethodEvaluationContextProvider;
+import org.springframework.data.repository.query.ReactiveExtensionAwareQueryMethodEvaluationContextProvider;
+import org.springframework.data.spel.spi.EvaluationContextExtension;
+import org.springframework.data.spel.spi.ReactiveEvaluationContextExtension;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
@@ -52,8 +58,8 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class ReactiveStringBasedCassandraQueryUnitTests {
+@ExtendWith(MockitoExtension.class)
+class ReactiveStringBasedCassandraQueryUnitTests {
 
 	private static final SpelExpressionParser PARSER = new SpelExpressionParser();
 
@@ -65,9 +71,9 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 	private ProjectionFactory factory;
 	private RepositoryMetadata metadata;
 
-	@Before
+	@BeforeEach
 	@SuppressWarnings("unchecked")
-	public void setUp() {
+	void setUp() {
 
 		this.metadata = AbstractRepositoryMetadata.getMetadata(SampleRepository.class);
 		this.converter = new MappingCassandraConverter(new CassandraMappingContext());
@@ -79,20 +85,20 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void bindsSimplePropertyCorrectly() throws Exception {
+	void bindsSimplePropertyCorrectly() {
 
 		ReactiveStringBasedCassandraQuery cassandraQuery = getQueryMethod("findByLastname", String.class);
 		CassandraParametersParameterAccessor accessor = new CassandraParametersParameterAccessor(
 				cassandraQuery.getQueryMethod(), "White");
 
-		SimpleStatement actual = cassandraQuery.createQuery(accessor);
+		SimpleStatement actual = cassandraQuery.createQuery(accessor).block();
 
 		assertThat(actual.getQuery()).isEqualTo("SELECT * FROM person WHERE lastname=?;");
 		assertThat(actual.getPositionalValues().get(0)).isEqualTo("White");
 	}
 
 	@Test // DATACASS-146
-	public void shouldApplyQueryOptions() {
+	void shouldApplyQueryOptions() {
 
 		QueryOptions queryOptions = QueryOptions.builder().pageSize(777).build();
 
@@ -102,7 +108,7 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 		CassandraParametersParameterAccessor parameterAccessor = new CassandraParametersParameterAccessor(
 				cassandraQuery.getQueryMethod(), queryOptions, "White");
 
-		SimpleStatement actual = cassandraQuery.createQuery(parameterAccessor);
+		SimpleStatement actual = cassandraQuery.createQuery(parameterAccessor).block();
 
 		assertThat(actual.getQuery()).isEqualTo("SELECT * FROM person WHERE lastname=?;");
 		assertThat(actual.getPositionalValues().get(0)).isEqualTo("White");
@@ -110,18 +116,32 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 	}
 
 	@Test // DATACASS-146
-	public void shouldApplyConsistencyLevel() {
+	void shouldApplyConsistencyLevel() {
 
 		ReactiveStringBasedCassandraQuery cassandraQuery = getQueryMethod("findByLastname", String.class);
 
 		CassandraParametersParameterAccessor parameterAccessor = new CassandraParametersParameterAccessor(
 				cassandraQuery.getQueryMethod(), "Matthews");
 
-		SimpleStatement actual = cassandraQuery.createQuery(parameterAccessor);
+		SimpleStatement actual = cassandraQuery.createQuery(parameterAccessor).block();
 
 		assertThat(actual.getQuery()).isEqualTo("SELECT * FROM person WHERE lastname=?;");
 		assertThat(actual.getPositionalValues().get(0)).isEqualTo("Matthews");
 		assertThat(actual.getConsistencyLevel()).isEqualTo(DefaultConsistencyLevel.LOCAL_ONE);
+	}
+
+	@Test // DATACASS-788
+	void shouldUseSpelExtension() {
+
+		ReactiveStringBasedCassandraQuery cassandraQuery = getQueryMethod("findBySpel");
+
+		CassandraParametersParameterAccessor parameterAccessor = new CassandraParametersParameterAccessor(
+				cassandraQuery.getQueryMethod());
+
+		SimpleStatement actual = cassandraQuery.createQuery(parameterAccessor).block();
+
+		assertThat(actual.getQuery()).isEqualTo("SELECT * FROM person WHERE lastname=?;");
+		assertThat(actual.getPositionalValues().get(0)).isEqualTo("Walter");
 	}
 
 	private ReactiveStringBasedCassandraQuery getQueryMethod(String name, Class<?>... args) {
@@ -131,8 +151,11 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 		ReactiveCassandraQueryMethod queryMethod = new ReactiveCassandraQueryMethod(method, metadata, factory,
 				converter.getMappingContext());
 
+		ReactiveExtensionAwareQueryMethodEvaluationContextProvider provider = new ReactiveExtensionAwareQueryMethodEvaluationContextProvider(
+				Arrays.asList(MyReactiveExtension.INSTANCE, MyDefunctExtension.INSTANCE));
+
 		return new ReactiveStringBasedCassandraQuery(queryMethod, operations, PARSER,
-				ExtensionAwareQueryMethodEvaluationContextProvider.DEFAULT);
+				provider);
 	}
 
 	@SuppressWarnings("unused")
@@ -145,5 +168,74 @@ public class ReactiveStringBasedCassandraQueryUnitTests {
 		@Query("SELECT * FROM person WHERE lastname=?0;")
 		Person findByLastname(QueryOptions queryOptions, String lastname);
 
+		@Query("SELECT * FROM person WHERE lastname=:#{getName()};")
+		Person findBySpel();
+
+	}
+
+	public static class MyReactiveExtensionObject implements EvaluationContextExtension {
+
+		public String getName() {
+			return "Walter";
+		}
+
+		@Override
+		public String getExtensionId() {
+			return "ext-1";
+		}
+
+		@Nullable
+		@Override
+		public MyReactiveExtensionObject getRootObject() {
+			return this;
+		}
+	}
+
+	public static class DefunctExtensionObject implements EvaluationContextExtension {
+
+		public String getPrincipal() {
+			throw new IllegalStateException();
+		}
+
+		@Override
+		public String getExtensionId() {
+			return "ext-1";
+		}
+
+		@Nullable
+		@Override
+		public DefunctExtensionObject getRootObject() {
+			throw new IllegalStateException();
+		}
+	}
+
+	enum MyReactiveExtension implements ReactiveEvaluationContextExtension {
+
+		INSTANCE;
+
+		@Override
+		public Mono<MyReactiveExtensionObject> getExtension() {
+			return Mono.just(new MyReactiveExtensionObject());
+		}
+
+		@Override
+		public String getExtensionId() {
+			return "ext-1";
+		}
+	}
+
+	enum MyDefunctExtension implements ReactiveEvaluationContextExtension {
+
+		INSTANCE;
+
+		@Override
+		public Mono<DefunctExtensionObject> getExtension() {
+			return Mono.error(new IllegalStateException());
+		}
+
+		@Override
+		public String getExtensionId() {
+			return "ext-2";
+		}
 	}
 }

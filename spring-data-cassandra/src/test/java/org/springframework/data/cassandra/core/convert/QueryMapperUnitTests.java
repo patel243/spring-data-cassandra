@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.data.cassandra.core.convert;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.data.domain.Sort.Order.*;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,11 +33,14 @@ import java.util.stream.Collectors;
 
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
@@ -70,24 +74,25 @@ import com.datastax.oss.driver.api.core.type.DataTypes;
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class QueryMapperUnitTests {
 
-	CassandraMappingContext mappingContext = new CassandraMappingContext();
+	private CassandraMappingContext mappingContext = new CassandraMappingContext();
 
-	CassandraPersistentEntity<?> persistentEntity;
+	private CassandraPersistentEntity<?> persistentEntity;
 
-	MappingCassandraConverter cassandraConverter;
+	private MappingCassandraConverter cassandraConverter;
 
-	QueryMapper queryMapper;
+	private QueryMapper queryMapper;
 
-	com.datastax.oss.driver.api.core.type.UserDefinedType userType = UserDefinedTypeBuilder.forName("address")
+	private com.datastax.oss.driver.api.core.type.UserDefinedType userType = UserDefinedTypeBuilder.forName("address")
 			.withField("street", DataTypes.TEXT).build();
 
 	@Mock UserTypeResolver userTypeResolver;
 
-	@Before
-	public void before() {
+	@BeforeEach
+	void before() {
 
 		CassandraCustomConversions customConversions = new CassandraCustomConversions(
 				Collections.singletonList(CurrencyConverter.INSTANCE));
@@ -107,7 +112,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapSimpleQuery() {
+	void shouldMapSimpleQuery() {
 
 		Query query = Query.query(Criteria.where("foo_name").is("bar"));
 
@@ -120,7 +125,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapEnumToString() {
+	void shouldMapEnumToString() {
 
 		Query query = Query.query(Criteria.where("foo_name").is(State.Active));
 
@@ -132,7 +137,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapEnumToNumber() {
+	void shouldMapEnumToNumber() {
 
 		Query query = Query.query(Criteria.where("number").is(State.Inactive));
 
@@ -144,7 +149,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapEnumToNumberIn() {
+	void shouldMapEnumToNumberIn() {
 
 		Query query = Query.query(Criteria.where("number").in(State.Inactive));
 
@@ -157,7 +162,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapApplyingCustomConversion() {
+	void shouldMapApplyingCustomConversion() {
 
 		Query query = Query.query(Criteria.where("foo_name").is(Currency.getInstance("EUR")));
 
@@ -170,7 +175,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapApplyingCustomConversionInCollection() {
+	void shouldMapApplyingCustomConversionInCollection() {
 
 		Query query = Query.query(Criteria.where("foo_name").in(Currency.getInstance("EUR")));
 
@@ -183,7 +188,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapApplyingUdtValueConversion() {
+	void shouldMapApplyingUdtValueConversion() {
 
 		Query query = Query.query(Criteria.where("address").is(new Address("21 Jump-Street")));
 
@@ -198,7 +203,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapApplyingUdtValueCollectionConversion() {
+	void shouldMapApplyingUdtValueCollectionConversion() {
 
 		Query query = Query.query(Criteria.where("address").in(new Address("21 Jump-Street")));
 
@@ -215,7 +220,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapCollectionApplyingUdtValueCollectionConversion() {
+	void shouldMapCollectionApplyingUdtValueCollectionConversion() {
 
 		Query query = Query.query(Criteria.where("address").in(new Address("21 Jump-Street")));
 
@@ -231,7 +236,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-487
-	public void shouldMapUdtMapContainsKey() {
+	void shouldMapUdtMapContainsKey() {
 
 		Query query = Query.query(Criteria.where("relocations").containsKey(new Address("21 Jump-Street")));
 
@@ -246,7 +251,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-487
-	public void shouldMapUdtMapContains() {
+	void shouldMapUdtMapContains() {
 
 		Query query = Query.query(Criteria.where("relocations").contains(new Address("21 Jump-Street")));
 
@@ -261,7 +266,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapPropertyToColumnName() {
+	void shouldMapPropertyToColumnName() {
 
 		Query query = Query.query(Criteria.where("firstName").is("bar"));
 
@@ -275,7 +280,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldCreateSelectExpression() {
+	void shouldCreateSelectExpression() {
 
 		List<Selector> selectors = queryMapper.getMappedSelectors(Columns.empty(), persistentEntity);
 
@@ -283,7 +288,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldCreateSelectExpressionWithTTL() {
+	void shouldCreateSelectExpressionWithTTL() {
 
 		List<String> selectors = queryMapper
 				.getMappedSelectors(Columns.from("number", "foo").ttl("firstName"),
@@ -294,7 +299,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldIncludeColumnsSelectExpressionWithTTL() {
+	void shouldIncludeColumnsSelectExpressionWithTTL() {
 
 		List<CqlIdentifier> selectors = queryMapper.getMappedColumnNames(Columns.from("number", "foo").ttl("firstName"),
 				persistentEntity);
@@ -303,7 +308,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapQueryWithCompositePrimaryKeyClass() {
+	void shouldMapQueryWithCompositePrimaryKeyClass() {
 
 		Filter filter = Filter.from(Criteria.where("key.firstname").is("foo"));
 
@@ -314,7 +319,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapSortWithCompositePrimaryKeyClass() {
+	void shouldMapSortWithCompositePrimaryKeyClass() {
 
 		Sort sort = Sort.by("key.firstname");
 
@@ -324,16 +329,19 @@ public class QueryMapperUnitTests {
 		assertThat(mappedObject).contains(new Order(Direction.ASC, "first_name"));
 	}
 
-	@Test(expected = IllegalArgumentException.class) // DATACASS-343
-	public void shouldFailMappingSortByCompositePrimaryKeyClass() {
+	@Test // DATACASS-828
+	void allowSortByCompositeKey() {
 
 		Sort sort = Sort.by("key");
+		Query.empty().columns(Columns.from("key"));
 
-		queryMapper.getMappedSort(sort, mappingContext.getRequiredPersistentEntity(TypeWithKeyClass.class));
+		Sort mappedSort = queryMapper.getMappedSort(sort,
+				mappingContext.getRequiredPersistentEntity(TypeWithKeyClass.class));
+		assertThat(mappedSort).isEqualTo(Sort.by(asc("first_name"), asc("lastname")));
 	}
 
 	@Test // DATACASS-343
-	public void shouldMapColumnWithCompositePrimaryKeyClass() {
+	void shouldMapColumnWithCompositePrimaryKeyClass() {
 
 		Columns columnNames = Columns.from("key.firstname");
 
@@ -344,7 +352,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-523
-	public void shouldMapTuple() {
+	void shouldMapTuple() {
 
 		MappedTuple tuple = new MappedTuple("foo");
 
@@ -361,7 +369,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-302
-	public void shouldMapTime() {
+	void shouldMapTime() {
 
 		Filter filter = Filter.from(Criteria.where("localTime").gt(LocalTime.fromMillisOfDay(1000)));
 
@@ -373,14 +381,14 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-523
-	public void referencingTupleElementsInQueryShouldFail() {
+	void referencingTupleElementsInQueryShouldFail() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> this.queryMapper.getMappedObject(Filter.from(Criteria.where("tuple.zip").is("123")),
 						this.mappingContext.getRequiredPersistentEntity(Person.class)));
 	}
 
 	@Test // DATACASS-167
-	public void shouldMapEmbeddedType() {
+	void shouldMapEmbeddedType() {
 
 		Filter filter = Filter.from(Criteria.where("nested.firstname").is("spring"));
 
@@ -391,7 +399,7 @@ public class QueryMapperUnitTests {
 	}
 
 	@Test // DATACASS-167
-	public void shouldMapPrefixedEmbeddedType() {
+	void shouldMapPrefixedEmbeddedType() {
 
 		Filter filter = Filter.from(Criteria.where("nested.firstname").is("spring"));
 

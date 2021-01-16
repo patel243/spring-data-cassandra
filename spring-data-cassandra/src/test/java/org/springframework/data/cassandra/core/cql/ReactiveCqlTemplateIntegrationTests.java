@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,42 @@
 package org.springframework.data.cassandra.core.cql;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.Assume.*;
 
 import reactor.test.StepVerifier;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import org.springframework.data.cassandra.CassandraInvalidQueryException;
 import org.springframework.data.cassandra.ReactiveSession;
 import org.springframework.data.cassandra.core.cql.session.DefaultBridgedReactiveSession;
 import org.springframework.data.cassandra.core.cql.session.DefaultReactiveSessionFactory;
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.support.CassandraVersion;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
+import org.springframework.data.util.Version;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 
 /**
  * Integration tests for {@link ReactiveCqlTemplate}.
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
-public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
-
+class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
+	private static final Version CASSANDRA_4 = Version.parse("4.0");
 	private static final AtomicBoolean initialized = new AtomicBoolean();
 
-	ReactiveSession reactiveSession;
-	ReactiveCqlTemplate template;
+	private ReactiveSession reactiveSession;
+	private ReactiveCqlTemplate template;
+	private Version cassandraVersion;
 
-	@Before
-	public void before() {
+	@BeforeEach
+	void before() {
 
 		reactiveSession = new DefaultBridgedReactiveSession(getSession());
 
@@ -56,10 +63,11 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 		getSession().execute("INSERT INTO user (id, username) VALUES ('WHITE', 'Walter');");
 
 		template = new ReactiveCqlTemplate(new DefaultReactiveSessionFactory(reactiveSession));
+		cassandraVersion = CassandraVersion.get(getSession());
 	}
 
 	@Test // DATACASS-335
-	public void executeShouldRemoveRecords() {
+	void executeShouldRemoveRecords() {
 
 		template.execute("DELETE FROM user WHERE id = 'WHITE'").as(StepVerifier::create).expectNext(true).verifyComplete();
 
@@ -67,7 +75,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectShouldReturnFirstColumn() {
+	void queryForObjectShouldReturnFirstColumn() {
 
 		template.queryForObject("SELECT id FROM user;", String.class).as(StepVerifier::create) //
 				.expectNext("WHITE") //
@@ -75,7 +83,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectShouldReturnMap() {
+	void queryForObjectShouldReturnMap() {
 
 		template.queryForMap("SELECT * FROM user;").as(StepVerifier::create) //
 				.consumeNextWith(actual -> {
@@ -85,7 +93,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void executeStatementShouldRemoveRecords() {
+	void executeStatementShouldRemoveRecords() {
 
 		template.execute(SimpleStatement.newInstance("DELETE FROM user WHERE id = 'WHITE'")).as(StepVerifier::create) //
 				.expectNext(true) //
@@ -95,7 +103,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectStatementShouldReturnFirstColumn() {
+	void queryForObjectStatementShouldReturnFirstColumn() {
 
 		template.queryForObject(SimpleStatement.newInstance("SELECT id FROM user"), String.class).as(StepVerifier::create) //
 				.expectNext("WHITE") //
@@ -103,7 +111,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectStatementShouldReturnMap() {
+	void queryForObjectStatementShouldReturnMap() {
 
 		template.queryForMap(SimpleStatement.newInstance("SELECT * FROM user")).as(StepVerifier::create) //
 				.consumeNextWith(actual -> {
@@ -113,7 +121,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void executeWithArgsShouldRemoveRecords() {
+	void executeWithArgsShouldRemoveRecords() {
 
 		template.execute("DELETE FROM user WHERE id = ?", "WHITE").as(StepVerifier::create).expectNext(true)
 				.verifyComplete();
@@ -122,7 +130,7 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectWithArgsShouldReturnFirstColumn() {
+	void queryForObjectWithArgsShouldReturnFirstColumn() {
 
 		template.queryForObject("SELECT id FROM user WHERE id = ?;", String.class, "WHITE").as(StepVerifier::create) //
 				.expectNext("WHITE") //
@@ -130,12 +138,39 @@ public class ReactiveCqlTemplateIntegrationTests extends AbstractKeyspaceCreatin
 	}
 
 	@Test // DATACASS-335
-	public void queryForObjectWithArgsShouldReturnMap() {
+	void queryForObjectWithArgsShouldReturnMap() {
 
 		template.queryForMap("SELECT * FROM user WHERE id = ?;", "WHITE").as(StepVerifier::create) //
 				.consumeNextWith(actual -> {
 
 					assertThat(actual).containsEntry("id", "WHITE").containsEntry("username", "Walter");
 				}).verifyComplete();
+	}
+
+	@Test // DATACASS-767
+	void selectByQueryWithKeyspaceShouldRetrieveData() {
+		assumeTrue(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4));
+
+		template.setKeyspace(CqlIdentifier.fromCql(keyspace));
+
+		template.queryForMap("SELECT * FROM user;").as(StepVerifier::create) //
+				.consumeNextWith(actual -> {
+
+					assertThat(actual).containsEntry("id", "WHITE").containsEntry("username", "Walter");
+				}).verifyComplete();
+	}
+
+	@Test // DATACASS-767
+	void selectByQueryWithNonExistingKeyspaceShouldThrowThatKeyspaceDoesNotExists() {
+		assumeTrue(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4));
+
+		template.setKeyspace(CqlIdentifier.fromCql("non_existing"));
+
+		template.queryForMap("SELECT * FROM user;").as(StepVerifier::create) //
+				.consumeErrorWith(e -> {
+					assertThat(e).isInstanceOf(CassandraInvalidQueryException.class)
+							.hasMessageContaining("Keyspace 'non_existing' does not exist");
+				}).verify();
+
 	}
 }

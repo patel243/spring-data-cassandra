@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,44 +19,57 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.time.Duration;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 
 /**
  * Unit tests for {@link QueryOptions}.
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
-public class QueryOptionsUnitTests {
+class QueryOptionsUnitTests {
 
 	@Test // DATACASS-202
-	public void buildQueryOptions() {
+	void buildQueryOptions() {
 
-		QueryOptions queryOptions = QueryOptions.builder().consistencyLevel(DefaultConsistencyLevel.ANY)
-				.timeout(Duration.ofSeconds(1)).pageSize(10).tracing(true).build();
+		QueryOptions queryOptions = QueryOptions.builder() //
+				.consistencyLevel(DefaultConsistencyLevel.ANY) //
+				.timeout(Duration.ofSeconds(1)) //
+				.pageSize(10) //
+				.tracing(true) //
+				.keyspace(CqlIdentifier.fromCql("ks1")) //
+				.build();
 
 		assertThat(queryOptions.getClass()).isEqualTo(QueryOptions.class);
 		assertThat(queryOptions.getConsistencyLevel()).isEqualTo(DefaultConsistencyLevel.ANY);
 		assertThat(queryOptions.getTimeout()).isEqualTo(Duration.ofSeconds(1));
 		assertThat(queryOptions.getPageSize()).isEqualTo(10);
 		assertThat(queryOptions.getTracing()).isTrue();
+		assertThat(queryOptions.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("ks1"));
 	}
 
 	@Test // DATACASS-56
-	public void buildQueryOptionsMutate() {
+	void buildQueryOptionsMutate() {
 
-		QueryOptions queryOptions = QueryOptions.builder().consistencyLevel(DefaultConsistencyLevel.ANY)
-				.timeout(Duration.ofSeconds(1)).pageSize(10).tracing(true).build();
+		QueryOptions queryOptions = QueryOptions.builder() //
+				.consistencyLevel(DefaultConsistencyLevel.ANY) //
+				.timeout(Duration.ofSeconds(1)) //
+				.pageSize(10) //
+				.tracing(true) //
+				.keyspace(CqlIdentifier.fromCql("ks1")) //
+				.build();
 
 		QueryOptions mutated = queryOptions.mutate().timeout(Duration.ofSeconds(5)).build();
 
-		assertThat(mutated).isNotNull();
-		assertThat(mutated).isNotSameAs(queryOptions);
+		assertThat(mutated).isNotNull().isNotSameAs(queryOptions);
 		assertThat(mutated.getClass()).isEqualTo(QueryOptions.class);
 		assertThat(mutated.getConsistencyLevel()).isEqualTo(DefaultConsistencyLevel.ANY);
 		assertThat(mutated.getTimeout()).isEqualTo(Duration.ofSeconds(5));
 		assertThat(mutated.getPageSize()).isEqualTo(10);
 		assertThat(mutated.getTracing()).isTrue();
+		assertThat(mutated.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("ks1"));
 	}
 }

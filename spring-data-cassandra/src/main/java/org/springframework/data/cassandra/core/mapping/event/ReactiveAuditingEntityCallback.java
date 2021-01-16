@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ import reactor.core.publisher.Mono;
 
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.core.Ordered;
-import org.springframework.data.auditing.AuditingHandler;
-import org.springframework.data.auditing.IsNewAwareAuditingHandler;
+import org.springframework.data.auditing.ReactiveIsNewAwareAuditingHandler;
 import org.springframework.data.mapping.callback.EntityCallback;
 import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.util.Assert;
@@ -35,15 +34,15 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  */
 public class ReactiveAuditingEntityCallback implements ReactiveBeforeConvertCallback<Object>, Ordered {
 
-	private final ObjectFactory<IsNewAwareAuditingHandler> auditingHandlerFactory;
+	private final ObjectFactory<ReactiveIsNewAwareAuditingHandler> auditingHandlerFactory;
 
 	/**
 	 * Creates a new {@link ReactiveAuditingEntityCallback} using the given {@link MappingContext} and
-	 * {@link AuditingHandler} provided by the given {@link ObjectFactory}.
+	 * {@link ReactiveIsNewAwareAuditingHandler} provided by the given {@link ObjectFactory}.
 	 *
 	 * @param auditingHandlerFactory must not be {@literal null}.
 	 */
-	public ReactiveAuditingEntityCallback(ObjectFactory<IsNewAwareAuditingHandler> auditingHandlerFactory) {
+	public ReactiveAuditingEntityCallback(ObjectFactory<ReactiveIsNewAwareAuditingHandler> auditingHandlerFactory) {
 
 		Assert.notNull(auditingHandlerFactory, "IsNewAwareAuditingHandler must not be null!");
 		this.auditingHandlerFactory = auditingHandlerFactory;
@@ -55,7 +54,7 @@ public class ReactiveAuditingEntityCallback implements ReactiveBeforeConvertCall
 	 */
 	@Override
 	public Mono<Object> onBeforeConvert(Object entity, CqlIdentifier tableName) {
-		return Mono.just(auditingHandlerFactory.getObject().markAudited(entity));
+		return auditingHandlerFactory.getObject().markAudited(entity);
 	}
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,11 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
  * {@code cql} text. Statement options (idempotency, timeouts) apply from the statement that was initially prepared.
  *
  * @author Mark Paluch
+ * @author Aldo Bongio
  * @since 2.0
+ * @deprecated since 3.2, the Cassandra driver has a built-in prepared statement cache with makes external caching of prepared statements superfluous.
  */
+@Deprecated
 public class MapPreparedStatementCache implements PreparedStatementCache {
 
 	private final Map<CacheKey, PreparedStatement> cache;
@@ -78,13 +81,13 @@ public class MapPreparedStatementCache implements PreparedStatementCache {
 	}
 
 	/* (non-Javadoc)
-	 * @see org.springframework.data.cassandra.core.cql.support.PrepatedStatementCache#getPreparedStatement(com.datastax.oss.driver.api.core.CqlSession, com.datastax.oss.driver.api.core.cql.SimpleStatement, java.util.function.Supplier)
+	 * @see org.springframework.data.cassandra.core.cql.support.PreparedStatementCache#getPreparedStatement(com.datastax.oss.driver.api.core.CqlSession, com.datastax.oss.driver.api.core.cql.SimpleStatement, java.util.function.Supplier)
 	 */
 	@Override
 	public PreparedStatement getPreparedStatement(CqlSession session, SimpleStatement statement,
 			Supplier<PreparedStatement> preparer) {
 
-		CacheKey cacheKey = new CacheKey(session, statement.toString());
+		CacheKey cacheKey = new CacheKey(session, statement.getQuery());
 
 		return getCache().computeIfAbsent(cacheKey, key -> preparer.get());
 	}

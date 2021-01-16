@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 the original author or authors.
+ * Copyright 2013-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,24 @@
  */
 package org.springframework.data.cassandra.core.cql;
 
+import org.springframework.util.Assert;
+
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-
-import org.springframework.util.Assert;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 
 /**
  * Trivial implementation of {@link PreparedStatementCreator}. This prepared statement creator simply prepares a
- * statement from the CQL string.
- * <p>
- * This implementation is useful for testing. It should not be used in production systems with high volume reads and
- * writes. Use {@link CachedPreparedStatementCreator} When preparing statements with Cassandra, each Statement should be
- * prepared once and only once due to the overhead of preparing the statement.
+ * statement from the CQL string. Exposes the given CQL statement through {@link CqlProvider#getCql()},
  *
  * @author David Webb
  * @author Mark Paluch
+ * @see CqlProvider
  */
 public class SimplePreparedStatementCreator implements PreparedStatementCreator, CqlProvider {
 
-	private final String cql;
+	private final SimpleStatement statement;
 
 	/**
 	 * Create a {@link SimplePreparedStatementCreator} given {@code cql}.
@@ -45,14 +43,20 @@ public class SimplePreparedStatementCreator implements PreparedStatementCreator,
 
 		Assert.notNull(cql, "CQL is required to create a PreparedStatement");
 
-		this.cql = cql;
+		this.statement = SimpleStatement.newInstance(cql);
 	}
 
-	/* (non-Javadoc)
-	 * @see org.springframework.data.cassandra.core.cqlProvider#getCql()
+	/**
+	 * Create a {@link SimplePreparedStatementCreator} given {@code cql}.
+	 *
+	 * @param statement must not be {@literal null}.
+	 * @since 3.1
 	 */
-	public String getCql() {
-		return this.cql;
+	public SimplePreparedStatementCreator(SimpleStatement statement) {
+
+		Assert.notNull(statement, "CQL is required to create a PreparedStatement");
+
+		this.statement = statement;
 	}
 
 	/* (non-Javadoc)
@@ -60,6 +64,13 @@ public class SimplePreparedStatementCreator implements PreparedStatementCreator,
 	 */
 	@Override
 	public PreparedStatement createPreparedStatement(CqlSession session) throws DriverException {
-		return session.prepare(this.cql);
+		return session.prepare(this.statement);
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.cassandra.core.cqlProvider#getCql()
+	 */
+	public String getCql() {
+		return this.statement.getQuery();
 	}
 }

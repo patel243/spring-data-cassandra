@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.DriverException;
-import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
-import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Statement;
-
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.support.DataAccessUtils;
 import org.springframework.dao.support.PersistenceExceptionTranslator;
@@ -38,6 +31,14 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.SettableListenableFuture;
+
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DriverException;
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 
 /**
  * <b>This is the central class in the CQL core package for asynchronous Cassandra data access.</b> It simplifies the
@@ -162,7 +163,7 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 
 		try {
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing CQL Statement [{}]", cql);
+				logger.debug("Executing CQL statement [{}]", cql);
 			}
 
 			CompletionStage<T> results = getCurrentSession().executeAsync(applyStatementSettings(newStatement(cql)))
@@ -284,7 +285,7 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 
 		try {
 			if (logger.isDebugEnabled()) {
-				logger.debug("Executing CQL Statement [{}]", statement);
+				logger.debug("Executing statement [{}]", QueryExtractorDelegate.getCql(statement));
 			}
 
 			CompletionStage<T> results = getCurrentSession() //
@@ -524,7 +525,7 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 			ListenableFuture<Statement<?>> statementFuture = new MappingListenableFutureAdapter<>(
 					preparedStatementCreator.createPreparedStatement(session), preparedStatement -> {
 						if (logger.isDebugEnabled()) {
-							logger.debug("Executing prepared statement [{}]", preparedStatement);
+							logger.debug("Executing prepared statement [{}]", QueryExtractorDelegate.getCql(preparedStatement));
 						}
 
 						return applyStatementSettings(psb != null ? psb.bindValues(preparedStatement) : preparedStatement.bind());
@@ -745,13 +746,13 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 	 * @return the new {@link AsyncPreparedStatementCreator} to use
 	 */
 	protected AsyncPreparedStatementCreator newAsyncPreparedStatementCreator(String cql) {
-		return new SimpleAsyncPreparedStatementCreator(cql,
+		return new SimpleAsyncPreparedStatementCreator(
+				(SimpleStatement) applyStatementSettings(SimpleStatement.newInstance(cql)),
 				ex -> translateExceptionIfPossible("PrepareStatement", cql, ex));
 	}
 
 	/**
-	 * Constructs a new instance of the {@link ResultSetExtractor} initialized with and adapting the given
-	 * {@link RowCallbackHandler}.
+	 * Constructs a new instance of the {@link ResultSetExtractor} adapting the given {@link RowCallbackHandler}.
 	 *
 	 * @param rowCallbackHandler {@link RowCallbackHandler} to adapt as a {@link ResultSetExtractor}.
 	 * @return a {@link ResultSetExtractor} implementation adapting an instance of the {@link RowCallbackHandler}.
@@ -765,8 +766,7 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 	}
 
 	/**
-	 * Constructs a new instance of the {@link ResultSetExtractor} initialized with and adapting the given
-	 * {@link RowMapper}.
+	 * Constructs a new instance of the {@link ResultSetExtractor} adapting the given {@link RowMapper}.
 	 *
 	 * @param rowMapper {@link RowMapper} to adapt as a {@link ResultSetExtractor}.
 	 * @return a {@link ResultSetExtractor} implementation adapting an instance of the {@link RowMapper}.
@@ -806,25 +806,23 @@ public class AsyncCqlTemplate extends CassandraAccessor implements AsyncCqlOpera
 
 		private final PersistenceExceptionTranslator exceptionTranslator;
 
-		private final String cql;
+		private final SimpleStatement statement;
 
-		private SimpleAsyncPreparedStatementCreator(String cql, PersistenceExceptionTranslator exceptionTranslator) {
+		private SimpleAsyncPreparedStatementCreator(SimpleStatement statement,
+				PersistenceExceptionTranslator exceptionTranslator) {
 
-			Assert.hasText(cql, "CQL must not be empty");
-
-			this.cql = cql;
+			this.statement = statement;
 			this.exceptionTranslator = exceptionTranslator;
 		}
 
 		@Override
-		public String getCql() {
-			return this.cql;
+		public ListenableFuture<PreparedStatement> createPreparedStatement(CqlSession session) throws DriverException {
+			return new CassandraFutureAdapter<>(session.prepareAsync(this.statement), exceptionTranslator);
 		}
 
 		@Override
-		public ListenableFuture<PreparedStatement> createPreparedStatement(CqlSession session) throws DriverException {
-			return new CassandraFutureAdapter<>(session.prepareAsync(getCql()),
-					exceptionTranslator::translateExceptionIfPossible);
+		public String getCql() {
+			return this.statement.getQuery();
 		}
 	}
 

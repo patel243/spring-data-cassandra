@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.springframework.data.cassandra.ReactiveResultSet;
 import org.springframework.data.cassandra.ReactiveSession;
@@ -51,14 +55,16 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 
 /**
  * Unit tests for {@link ReactiveCassandraTemplate}.
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class ReactiveCassandraTemplateUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class ReactiveCassandraTemplateUnitTests {
 
 	@Mock ReactiveSession session;
 	@Mock ReactiveResultSet reactiveResultSet;
@@ -68,16 +74,17 @@ public class ReactiveCassandraTemplateUnitTests {
 
 	@Captor ArgumentCaptor<SimpleStatement> statementCaptor;
 
-	ReactiveCassandraTemplate template;
+	private ReactiveCassandraTemplate template;
 
-	Object beforeSave;
+	private Object beforeSave;
 
-	Object beforeConvert;
+	private Object beforeConvert;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		template = new ReactiveCassandraTemplate(session);
+		template.setUsePreparedStatements(false);
 
 		when(session.execute(any(Statement.class))).thenReturn(Mono.just(reactiveResultSet));
 		when(row.getColumnDefinitions()).thenReturn(columnDefinitions);
@@ -102,7 +109,7 @@ public class ReactiveCassandraTemplateUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void selectUsingCqlShouldReturnMappedResults() {
+	void selectUsingCqlShouldReturnMappedResults() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 		when(columnDefinitions.contains(any(CqlIdentifier.class))).thenReturn(true);
@@ -123,11 +130,11 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users");
 	}
 
 	@Test // DATACASS-335
-	public void selectShouldTranslateException() {
+	void selectShouldTranslateException() {
 
 		when(reactiveResultSet.rows()).thenThrow(new NoNodeAvailableException());
 
@@ -138,7 +145,7 @@ public class ReactiveCassandraTemplateUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void selectOneByIdShouldReturnMappedResults() {
+	void selectOneByIdShouldReturnMappedResults() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 		when(columnDefinitions.contains(any(CqlIdentifier.class))).thenReturn(true);
@@ -158,11 +165,11 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
 	}
 
 	@Test // DATACASS-313
-	public void selectProjectedOneShouldReturnMappedResults() {
+	void selectProjectedOneShouldReturnMappedResults() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 		when(columnDefinitions.contains(any(CqlIdentifier.class))).thenReturn(true);
@@ -181,11 +188,11 @@ public class ReactiveCassandraTemplateUnitTests {
 				}).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT firstname FROM users LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT firstname FROM users LIMIT 1");
 	}
 
 	@Test // DATACASS-696
-	public void selectOneShouldNull() {
+	void selectOneShouldNull() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -194,51 +201,51 @@ public class ReactiveCassandraTemplateUnitTests {
 	}
 
 	@Test // DATACASS-335
-	public void existsShouldReturnExistingElement() {
+	void existsShouldReturnExistingElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
 		template.exists("myid", User.class).as(StepVerifier::create).expectNext(true).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
 	}
 
 	@Test // DATACASS-335
-	public void existsShouldReturnNonExistingElement() {
+	void existsShouldReturnNonExistingElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.empty());
 
 		template.exists("myid", User.class).as(StepVerifier::create).expectNext(false).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users WHERE id='myid' LIMIT 1");
 	}
 
 	@Test // DATACASS-512
-	public void existsByQueryShouldReturnExistingElement() {
+	void existsByQueryShouldReturnExistingElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
 		template.exists(Query.empty(), User.class).as(StepVerifier::create).expectNext(true).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users LIMIT 1");
 	}
 
 	@Test // DATACASS-512
-	public void existsByQueryShouldReturnNonExistingElement() {
+	void existsByQueryShouldReturnNonExistingElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.empty());
 
 		template.exists(Query.empty(), User.class).as(StepVerifier::create).expectNext(false).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT * FROM users LIMIT 1");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT * FROM users LIMIT 1");
 	}
 
 	@Test // DATACASS-335
-	public void countShouldExecuteCountQueryElement() {
+	void countShouldExecuteCountQueryElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 		when(row.getLong(0)).thenReturn(42L);
@@ -247,11 +254,11 @@ public class ReactiveCassandraTemplateUnitTests {
 		template.count(User.class).as(StepVerifier::create).expectNext(42L).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT count(1) FROM users");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT count(1) FROM users");
 	}
 
 	@Test // DATACASS-512
-	public void countByQueryShouldExecuteCountQueryElement() {
+	void countByQueryShouldExecuteCountQueryElement() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 		when(row.getLong(0)).thenReturn(42L);
@@ -260,11 +267,11 @@ public class ReactiveCassandraTemplateUnitTests {
 		template.count(Query.empty(), User.class).as(StepVerifier::create).expectNext(42L).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("SELECT count(1) FROM users");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("SELECT count(1) FROM users");
 	}
 
 	@Test // DATACASS-335, DATACASS-618
-	public void insertShouldInsertEntity() {
+	void insertShouldInsertEntity() {
 
 		when(reactiveResultSet.wasApplied()).thenReturn(true);
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
@@ -273,14 +280,14 @@ public class ReactiveCassandraTemplateUnitTests {
 		template.insert(user).as(StepVerifier::create).expectNext(user).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("INSERT INTO users (firstname,id,lastname) VALUES ('Walter','heisenberg','White')");
 		assertThat(beforeConvert).isSameAs(user);
 		assertThat(beforeSave).isSameAs(user);
 	}
 
 	@Test // DATACASS-618
-	public void insertShouldInsertVersionedEntity() {
+	void insertShouldInsertVersionedEntity() {
 
 		when(reactiveResultSet.wasApplied()).thenReturn(true);
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
@@ -289,14 +296,14 @@ public class ReactiveCassandraTemplateUnitTests {
 		StepVerifier.create(template.insert(user)).expectNext(user).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo(
+		assertThat(render(statementCaptor.getValue())).isEqualTo(
 				"INSERT INTO vusers (firstname,id,lastname,version) VALUES ('Walter','heisenberg','White',0) IF NOT EXISTS");
 		assertThat(beforeConvert).isSameAs(user);
 		assertThat(beforeSave).isSameAs(user);
 	}
 
 	@Test // DATACASS-335
-	public void insertShouldTranslateException() {
+	void insertShouldTranslateException() {
 
 		reset(session);
 		when(session.execute(any(Statement.class))).thenReturn(Mono.error(new NoNodeAvailableException()));
@@ -309,7 +316,7 @@ public class ReactiveCassandraTemplateUnitTests {
 	}
 
 	@Test // DATACASS-335, DATACASS-618
-	public void updateShouldUpdateEntity() {
+	void updateShouldUpdateEntity() {
 
 		when(reactiveResultSet.wasApplied()).thenReturn(true);
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
@@ -319,14 +326,14 @@ public class ReactiveCassandraTemplateUnitTests {
 		template.update(user).as(StepVerifier::create).expectNext(user).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("UPDATE users SET firstname='Walter', lastname='White' WHERE id='heisenberg'");
 		assertThat(beforeConvert).isSameAs(user);
 		assertThat(beforeSave).isSameAs(user);
 	}
 
 	@Test // DATACASS-618
-	public void updateShouldUpdateVersionedEntity() {
+	void updateShouldUpdateVersionedEntity() {
 
 		when(reactiveResultSet.wasApplied()).thenReturn(true);
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
@@ -337,14 +344,14 @@ public class ReactiveCassandraTemplateUnitTests {
 		StepVerifier.create(template.update(user)).expectNext(user).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo(
+		assertThat(render(statementCaptor.getValue())).isEqualTo(
 				"UPDATE vusers SET firstname='Walter', lastname='White', version=1 WHERE id='heisenberg' IF version=0");
 		assertThat(beforeConvert).isSameAs(user);
 		assertThat(beforeSave).isSameAs(user);
 	}
 
 	@Test // DATACASS-575
-	public void updateShouldUpdateEntityWithOptions() {
+	void updateShouldUpdateEntityWithOptions() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -357,12 +364,12 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("UPDATE users SET firstname='Walter', lastname='White' WHERE id='heisenberg' IF EXISTS");
 	}
 
 	@Test // DATACASS-575
-	public void updateShouldUpdateEntityWithLwt() {
+	void updateShouldUpdateEntityWithLwt() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -375,12 +382,12 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("UPDATE users SET firstname='Walter', lastname='White' WHERE id='heisenberg' IF firstname='Walter'");
 	}
 
 	@Test // DATACASS-575
-	public void updateShouldApplyUpdateQuery() {
+	void updateShouldApplyUpdateQuery() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -393,12 +400,12 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("UPDATE users SET firstname='Walter' WHERE id='heisenberg'");
 	}
 
 	@Test // DATACASS-575
-	public void updateShouldApplyUpdateQueryWitLwt() {
+	void updateShouldApplyUpdateQueryWitLwt() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -415,12 +422,12 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo(
+		assertThat(render(statementCaptor.getValue())).isEqualTo(
 				"UPDATE users SET firstname='Walter' WHERE id='heisenberg' IF firstname='Walter' AND lastname='White'");
 	}
 
 	@Test // DATACASS-335
-	public void deleteShouldRemoveEntity() {
+	void deleteShouldRemoveEntity() {
 
 		when(reactiveResultSet.wasApplied()).thenReturn(true);
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
@@ -430,11 +437,11 @@ public class ReactiveCassandraTemplateUnitTests {
 		template.delete(user).as(StepVerifier::create).expectNext(user).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("DELETE FROM users WHERE id='heisenberg'");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("DELETE FROM users WHERE id='heisenberg'");
 	}
 
 	@Test // DATACASS-575
-	public void deleteShouldRemoveEntityWithLwt() {
+	void deleteShouldRemoveEntityWithLwt() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -447,12 +454,12 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("DELETE FROM users WHERE id='heisenberg' IF firstname='Walter'");
 	}
 
 	@Test // DATACASS-575
-	public void deleteShouldRemoveByQueryWithLwt() {
+	void deleteShouldRemoveByQueryWithLwt() {
 
 		when(reactiveResultSet.rows()).thenReturn(Flux.just(row));
 
@@ -465,20 +472,35 @@ public class ReactiveCassandraTemplateUnitTests {
 				.verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery())
+		assertThat(render(statementCaptor.getValue()))
 				.isEqualTo("DELETE FROM users WHERE id='heisenberg' IF firstname='Walter'");
 	}
 
 	@Test // DATACASS-335
-	public void truncateShouldRemoveEntities() {
+	void truncateShouldRemoveEntities() {
 
 		template.truncate(User.class).as(StepVerifier::create).verifyComplete();
 
 		verify(session).execute(statementCaptor.capture());
-		assertThat(statementCaptor.getValue().getQuery()).isEqualTo("TRUNCATE users");
+		assertThat(render(statementCaptor.getValue())).isEqualTo("TRUNCATE users");
 	}
 
-	interface UserProjection {
+	private static String render(SimpleStatement statement) {
+
+		String query = statement.getQuery();
+		List<Object> positionalValues = statement.getPositionalValues();
+		for (Object positionalValue : positionalValues) {
+
+			query = query.replaceFirst("\\?",
+					positionalValue != null
+							? CodecRegistry.DEFAULT.codecFor((Class) positionalValue.getClass()).format(positionalValue)
+							: "NULL");
+		}
+
+		return query;
+	}
+
+	private interface UserProjection {
 		String getFirstname();
 	}
 }

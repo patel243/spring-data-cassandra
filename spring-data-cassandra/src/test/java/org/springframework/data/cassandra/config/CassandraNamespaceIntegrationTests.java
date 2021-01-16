@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@ import static org.assertj.core.api.Assertions.*;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -30,8 +29,7 @@ import org.springframework.data.cassandra.core.cql.CqlTemplate;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.SimpleUserTypeResolver;
 import org.springframework.data.cassandra.repository.support.AbstractSpringDataEmbeddedCassandraIntegrationTest;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
@@ -40,15 +38,14 @@ import org.springframework.test.util.ReflectionTestUtils;
  *
  * @author Mark Paluch
  */
-@RunWith(SpringRunner.class)
-@ContextConfiguration
+@SpringJUnitConfig
 @SuppressWarnings("unused")
-public class CassandraNamespaceIntegrationTests extends AbstractSpringDataEmbeddedCassandraIntegrationTest {
+class CassandraNamespaceIntegrationTests extends AbstractSpringDataEmbeddedCassandraIntegrationTest {
 
 	@Autowired private ApplicationContext applicationContext;
 
 	@Test // DATACASS-705
-	public void keyspaceShouldBeInitialized() {
+	void keyspaceShouldBeInitialized() {
 
 		CqlTemplate cqlTemplate = this.applicationContext.getBean(CqlTemplate.class);
 
@@ -58,7 +55,7 @@ public class CassandraNamespaceIntegrationTests extends AbstractSpringDataEmbedd
 	}
 
 	@Test // DATACASS-172
-	public void mappingContextShouldHaveUserTypeResolverConfigured() {
+	void mappingContextShouldHaveUserTypeResolverConfigured() {
 
 		CassandraMappingContext mappingContext = this.applicationContext.getBean(CassandraMappingContext.class);
 
@@ -69,7 +66,7 @@ public class CassandraNamespaceIntegrationTests extends AbstractSpringDataEmbedd
 	}
 
 	@Test // DATACASS-417
-	public void mappingContextShouldCassandraTemplateConfigured() {
+	void mappingContextShouldCassandraTemplateConfigured() {
 
 		CassandraTemplate cassandraTemplate = this.applicationContext.getBean(CassandraTemplate.class);
 

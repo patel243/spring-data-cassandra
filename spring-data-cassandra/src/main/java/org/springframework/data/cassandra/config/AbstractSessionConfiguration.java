@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 the original author or authors.
+ * Copyright 2013-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package org.springframework.data.cassandra.config;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +28,7 @@ import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.Resource;
 import org.springframework.data.cassandra.SessionFactory;
 import org.springframework.data.cassandra.core.cql.CqlTemplate;
 import org.springframework.data.cassandra.core.cql.keyspace.CreateKeyspaceSpecification;
@@ -90,7 +93,7 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 	/**
 	 * Gets a required bean of the provided {@link Class type} from the {@link BeanFactory}.
 	 *
-	 * @param <T> {@link Class parameterized clas type} of the bean.
+	 * @param <T> {@link Class parameterized class type} of the bean.
 	 * @param beanType {@link Class type} of the bean.
 	 * @return a required bean of the given {@link Class type} from the {@link BeanFactory}.
 	 * @see org.springframework.beans.factory.BeanFactory#getBean(Class)
@@ -122,13 +125,14 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 
 	/**
 	 * Returns the local data center name used for
-	 * {@link com.datastax.oss.driver.api.core.loadbalancing.LoadBalancingPolicy}.
+	 * {@link com.datastax.oss.driver.api.core.loadbalancing.LoadBalancingPolicy}, defaulting to {@code datacenter1}.
+	 * Typically required when connecting a Cassandra cluster. Not required when using an Astra connection bundle.
 	 *
-	 * @return the local data center name.
+	 * @return the local data center name. Can be {@literal null} when using an Astra connection bundle.
 	 */
 	@Nullable
 	protected String getLocalDataCenter() {
-		return null;
+		return "datacenter1";
 	}
 
 	/**
@@ -225,6 +229,33 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 	}
 
 	/**
+	 * Returns the {@link DriverConfigLoaderBuilderConfigurer}. The configuration gets applied after applying
+	 * {@link System#getProperties() System Properties} config overrides and before
+	 * {@link #getDriverConfigurationResource() the driver config file}.
+	 *
+	 * @return the {@link DriverConfigLoaderBuilderConfigurer}; may be {@literal null}.
+	 * @since 3.1.2
+	 */
+	@Nullable
+	protected DriverConfigLoaderBuilderConfigurer getDriverConfigLoaderBuilderConfigurer() {
+		return null;
+	}
+
+	/**
+	 * Returns the {@link Resource} pointing to a driver configuration file. The configuration file is applied after
+	 * applying {@link System#getProperties() System Properties} and the configuration built by this configuration class.
+	 *
+	 * @return the {@link Resource}; may be {@literal null} if none provided.
+	 * @since 3.1.2
+	 * @see <a href="https://docs.datastax.com/en/developer/java-driver/4.9/manual/core/configuration/">Driver
+	 *      Configuration</a>
+	 */
+	@Nullable
+	protected Resource getDriverConfigurationResource() {
+		return null;
+	}
+
+	/**
 	 * Returns the list of CQL scripts to be run on startup after {@link #getKeyspaceCreations() Keyspace creations}
 	 * and after initialization of the {@literal System} Keyspace.
 	 *
@@ -280,7 +311,9 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 
 	private SessionBuilderConfigurer getSessionBuilderConfigurerWrapper() {
 
-		SessionBuilderConfigurer configurer = getSessionBuilderConfigurer();
+		SessionBuilderConfigurer sessionConfigurer = getSessionBuilderConfigurer();
+		DriverConfigLoaderBuilderConfigurer driverConfigLoaderConfigurer = getDriverConfigLoaderBuilderConfigurer();
+		Resource driverConfigFile = getDriverConfigurationResource();
 
 		return sessionBuilder -> {
 
@@ -290,8 +323,7 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 
 				if (StringUtils.hasText(getSessionName())) {
 					options.add(DefaultDriverOption.SESSION_NAME, getSessionName());
-				}
-				else if (StringUtils.hasText(getClusterName())) {
+				} else if (StringUtils.hasText(getClusterName())) {
 					options.add(DefaultDriverOption.SESSION_NAME, getClusterName());
 				}
 
@@ -303,17 +335,30 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 
 				ConfigFactory.invalidateCaches();
 
-				return ConfigFactory.defaultOverrides()
-						.withFallback(options.build())
-						.withFallback(ConfigFactory.defaultReference())
-						.resolve();
+				Config config = ConfigFactory.defaultOverrides() //
+						.withFallback(options.build());
+
+				if (driverConfigFile != null) {
+					try {
+						config = config
+								.withFallback(ConfigFactory.parseReader(new InputStreamReader(driverConfigFile.getInputStream())));
+					} catch (IOException e) {
+						throw new IllegalStateException(String.format("Cannot parse driver config file %s", driverConfigFile), e);
+					}
+				}
+
+				return config.withFallback(ConfigFactory.defaultReference());
 
 			}, DefaultDriverConfigLoader.DEFAULT_ROOT_PATH);
 
+			if (driverConfigLoaderConfigurer != null) {
+				driverConfigLoaderConfigurer.configure(builder);
+			}
+
 			sessionBuilder.withConfigLoader(builder.build());
 
-			if (configurer != null) {
-				return configurer.configure(sessionBuilder);
+			if (sessionConfigurer != null) {
+				return sessionConfigurer.configure(sessionBuilder);
 			}
 
 			return sessionBuilder;
@@ -336,8 +381,7 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 		private final Map<String, String> options = new LinkedHashMap<>();
 
 		private CassandraDriverOptions add(DriverOption option, String value) {
-			String key = createKeyFor(option);
-			this.options.put(key, value);
+			this.options.put(option.getPath(), value);
 			return this;
 		}
 
@@ -349,8 +393,5 @@ public abstract class AbstractSessionConfiguration implements BeanFactoryAware {
 			return ConfigFactory.parseMap(this.options, "Environment");
 		}
 
-		private static String createKeyFor(DriverOption option) {
-			return String.format("%s.%s", DefaultDriverConfigLoader.DEFAULT_ROOT_PATH, option.getPath());
-		}
 	}
 }

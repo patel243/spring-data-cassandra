@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@ package org.springframework.data.cassandra.core.mapping;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.StreamSupport;
 
 import org.springframework.beans.BeansException;
@@ -79,10 +78,11 @@ public class CassandraMappingContext
 	private @Deprecated CodecRegistry codecRegistry = CodecRegistry.DEFAULT;
 
 	// caches
-	private final Map<CqlIdentifier, Set<CassandraPersistentEntity<?>>> entitySetsByTableName = new HashMap<>();
+	private final Map<CqlIdentifier, Set<CassandraPersistentEntity<?>>> entitySetsByTableName = new ConcurrentHashMap<>();
 
-	private final Set<BasicCassandraPersistentEntity<?>> tableEntities = new HashSet<>();
-	private final Set<BasicCassandraPersistentEntity<?>> userDefinedTypes = new HashSet<>();
+	private final Set<BasicCassandraPersistentEntity<?>> tableEntities = ConcurrentHashMap.newKeySet();
+
+	private final Set<BasicCassandraPersistentEntity<?>> userDefinedTypes = ConcurrentHashMap.newKeySet();
 
 	/**
 	 * Create a new {@link CassandraMappingContext}.
@@ -345,7 +345,7 @@ public class CassandraMappingContext
 			// now do some caching of the entity
 
 			Set<CassandraPersistentEntity<?>> entities = this.entitySetsByTableName.computeIfAbsent(entity.getTableName(),
-					cqlIdentifier -> new HashSet<>());
+					cqlIdentifier -> ConcurrentHashMap.newKeySet());
 
 			entities.add(entity);
 

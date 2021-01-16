@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 package org.springframework.data.cassandra.core.convert;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import org.springframework.data.cassandra.core.mapping.BasicCassandraPersistentEntity;
 import org.springframework.data.cassandra.core.mapping.CassandraMappingContext;
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentProperty;
@@ -133,7 +132,7 @@ public class QueryMapper {
 			Predicate predicate = criteriaDefinition.getPredicate();
 
 			Object value = predicate.getValue();
-			ColumnType typeDescriptor = getColumnType(field, value, predicate.getOperator());
+			ColumnType typeDescriptor = getColumnType(field, value, ColumnTypeTransformer.of(field, predicate.getOperator()));
 
 			Object mappedValue = value != null ? getConverter().convertToColumnType(value, typeDescriptor) : null;
 
@@ -167,8 +166,14 @@ public class QueryMapper {
 
 			Field field = createPropertyField(entity, column);
 
-			columns.getSelector(column).ifPresent(selector -> getCqlIdentifier(column, field)
-					.ifPresent(cqlIdentifier -> selectors.add(getMappedSelector(selector, cqlIdentifier))));
+			columns.getSelector(column).ifPresent(selector -> {
+
+				List<CqlIdentifier> mappedColumnNames = getCqlIdentifier(column, field);
+
+				for (CqlIdentifier mappedColumnName : mappedColumnNames) {
+					selectors.add(getMappedSelector(selector, mappedColumnName));
+				}
+			});
 		}
 
 		if (columns.isEmpty()) {
@@ -207,17 +212,15 @@ public class QueryMapper {
 
 			FunctionCall functionCall = (FunctionCall) selector;
 
-			List<Object> mappedParameters = functionCall.getParameters().stream().map(obj -> {
+			FunctionCall mappedFunctionCall = FunctionCall.from(functionCall.getExpression(),
+					functionCall.getParameters().stream().map(obj -> {
 
-				if (obj instanceof Selector) {
-					return getMappedSelector((Selector) obj, cqlIdentifier);
-				}
+						if (obj instanceof Selector) {
+							return getMappedSelector((Selector) obj, cqlIdentifier);
+						}
 
-				return obj;
-			}) //
-					.collect(Collectors.toList());
-
-			FunctionCall mappedFunctionCall = FunctionCall.from(functionCall.getExpression(), mappedParameters.toArray());
+						return obj;
+					}).toArray());
 
 			return functionCall.getAlias() //
 					.map(mappedFunctionCall::as) //
@@ -252,11 +255,10 @@ public class QueryMapper {
 		for (ColumnName column : columns) {
 
 			Field field = createPropertyField(entity, column);
-
 			field.getProperty().ifPresent(seen::add);
 
 			columns.getSelector(column).filter(selector -> selector instanceof ColumnSelector)
-					.ifPresent(columnSelector -> getCqlIdentifier(column, field).ifPresent(columnNames::add));
+					.ifPresent(columnSelector -> columnNames.addAll(getCqlIdentifier(column, field)));
 		}
 
 		if (columns.isEmpty()) {
@@ -293,40 +295,49 @@ public class QueryMapper {
 
 			Field field = createPropertyField(entity, columnName);
 
-			Order mappedOrder = getCqlIdentifier(columnName, field)
-					.map(cqlIdentifier -> new Order(order.getDirection(), cqlIdentifier.toString())).orElse(order);
+			List<CqlIdentifier> mappedColumnNames = getCqlIdentifier(columnName, field);
 
-			mappedOrders.add(mappedOrder);
+			if (mappedColumnNames.isEmpty()) {
+				mappedOrders.add(order);
+			} else {
+				for (CqlIdentifier mappedColumnName : mappedColumnNames) {
+					mappedOrders.add(new Order(order.getDirection(), mappedColumnName.toString()));
+				}
+			}
 		}
 
 		return Sort.by(mappedOrders);
 	}
 
-	private Optional<CqlIdentifier> getCqlIdentifier(ColumnName column, Field field) {
+	private List<CqlIdentifier> getCqlIdentifier(ColumnName column, Field field) {
 
+		List<CqlIdentifier> identifiers = new ArrayList<>(1);
 		try {
 			if (field.getProperty().isPresent()) {
 
-				return field.getProperty().map(cassandraPersistentProperty -> {
+				CassandraPersistentProperty property = field.getProperty().get();
 
-					if (cassandraPersistentProperty.isCompositePrimaryKey()) {
-						throw new IllegalArgumentException(
-								"Cannot use composite primary key directly. Reference a property of the composite primary key");
-					}
+				if (property.isCompositePrimaryKey()) {
 
-					return cassandraPersistentProperty.getRequiredColumnName();
-				});
+					BasicCassandraPersistentEntity<?> primaryKeyEntity = mappingContext.getRequiredPersistentEntity(property);
+
+					primaryKeyEntity.forEach(it -> {
+						identifiers.add(it.getRequiredColumnName());
+					});
+				} else {
+					identifiers.add(property.getRequiredColumnName());
+				}
+			} else if (column.getColumnName().isPresent()) {
+				identifiers.add(CqlIdentifier.fromCql(column.getColumnName().get()));
+			} else {
+				column.getCqlIdentifier().ifPresent(identifiers::add);
 			}
-
-			if (column.getColumnName().isPresent()) {
-				return column.getColumnName().map(CqlIdentifier::fromCql);
-			}
-
-			return column.getCqlIdentifier();
 
 		} catch (IllegalStateException cause) {
 			throw new IllegalArgumentException(cause.getMessage(), cause);
 		}
+
+		return identifiers;
 	}
 
 	Field createPropertyField(@Nullable CassandraPersistentEntity<?> entity, ColumnName key) {
@@ -335,43 +346,124 @@ public class QueryMapper {
 				.orElseGet(() -> new Field(key));
 	}
 
-	ColumnType getColumnType(Field field, @Nullable Object value, @Nullable CriteriaDefinition.Operator operator) {
+	ColumnType getColumnType(Field field, @Nullable Object value, ColumnTypeTransformer operator) {
 
-		ColumnType typeDescriptor;
-		if (field.getProperty().isPresent()) {
-			typeDescriptor = converter.getColumnTypeResolver().resolve(field.getProperty().get());
-		} else {
+		ColumnTypeResolver resolver = converter.getColumnTypeResolver();
 
-			typeDescriptor = converter.getColumnTypeResolver().resolve(value);
-		}
+		return field.getProperty().map(it -> operator.transform(resolver.resolve(it), it)).map(ColumnType.class::cast)
+				.orElseGet(() -> resolver.resolve(value));
+	}
 
-		if (field.getProperty().isPresent()) {
+	/**
+	 * Transform a {@link ColumnType} determined from a {@link CassandraPersistentProperty} into a specific
+	 * {@link ColumnType} depending on the actual context. Typically used when querying a collection component type.
+	 */
+	enum ColumnTypeTransformer {
 
-			CassandraPersistentProperty property = field.getProperty().get();
+		/**
+		 * Pass-thru.
+		 */
+		AS_IS {
 
-			if (property.isCollectionLike()) {
-				if (operator == CriteriaDefinition.Operators.CONTAINS) {
-					typeDescriptor = typeDescriptor.getRequiredComponentType();
+			@Override
+			ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property) {
+				return typeDescriptor;
+			}
+		},
+
+		/**
+		 * Use the collection component type.
+		 */
+		COLLECTION_COMPONENT_TYPE {
+
+			@Override
+			ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property) {
+
+				if (property.isCollectionLike()) {
+					return typeDescriptor.getRequiredComponentType();
 				}
+
+				return typeDescriptor;
+			}
+		},
+
+		/**
+		 * Wrap {@link ColumnType} into a list.
+		 */
+		ENCLOSING_LIST {
+
+			@Override
+			ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property) {
+				return ColumnType.listOf(typeDescriptor);
+			}
+		},
+
+		/**
+		 * Use the map key type.
+		 */
+		MAP_KEY_TYPE {
+
+			@Override
+			ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property) {
+
+				if (property.isMapLike()) {
+					return typeDescriptor.getRequiredComponentType();
+				}
+
+				return typeDescriptor;
+			}
+		},
+
+		/**
+		 * Use the map value type.
+		 */
+		MAP_VALUE_TYPE {
+
+			@Override
+			ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property) {
+
+				if (property.isMapLike()) {
+					return typeDescriptor.getRequiredMapValueType();
+				}
+
+				return typeDescriptor;
+			}
+		};
+
+		/**
+		 * Transform the {@link ColumnType} depending on contextual requirements (update list/map, query map key/value) into
+		 * the specific {@link ColumnType} that matches the collection type requirements.
+		 *
+		 * @param typeDescriptor the type descriptor resolved from {@link CassandraPersistentProperty}.
+		 * @param property the underlying property.
+		 * @return the {@link ColumnType} to use.
+		 */
+		abstract ColumnType transform(ColumnType typeDescriptor, CassandraPersistentProperty property);
+
+		/**
+		 * Determine a {@link ColumnTypeTransformer} based on a criteria {@link CriteriaDefinition.Operator}.
+		 *
+		 * @param field the field to query.
+		 * @param operator criteria operator.
+		 * @return
+		 */
+		static ColumnTypeTransformer of(Field field, CriteriaDefinition.Operator operator) {
+
+			if (operator == CriteriaDefinition.Operators.CONTAINS) {
+				return field.getProperty().filter(CassandraPersistentProperty::isMapLike).map(it -> MAP_VALUE_TYPE)
+						.orElse(COLLECTION_COMPONENT_TYPE);
 			}
 
-			if (property.isMapLike()) {
-
-				if (operator == CriteriaDefinition.Operators.CONTAINS_KEY) {
-					typeDescriptor = typeDescriptor.getRequiredComponentType();
-				}
-
-				if (operator == CriteriaDefinition.Operators.CONTAINS) {
-					typeDescriptor = typeDescriptor.getRequiredMapValueType();
-				}
+			if (operator == CriteriaDefinition.Operators.CONTAINS_KEY) {
+				return MAP_KEY_TYPE;
 			}
-		}
 
-		if (value instanceof Collection && operator == CriteriaDefinition.Operators.IN) {
-			typeDescriptor = ColumnType.listOf(typeDescriptor);
-		}
+			if (operator == CriteriaDefinition.Operators.IN) {
+				return ENCLOSING_LIST;
+			}
 
-		return typeDescriptor;
+			return AS_IS;
+		}
 	}
 
 	/**

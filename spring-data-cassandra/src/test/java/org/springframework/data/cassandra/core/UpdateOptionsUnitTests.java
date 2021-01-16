@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import static org.assertj.core.api.Assertions.*;
 import java.time.Duration;
 import java.time.Instant;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.query.Query;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 
 /**
@@ -32,10 +33,10 @@ import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
  * @author Mark Paluch
  * @author Lukasz Antoniak
  */
-public class UpdateOptionsUnitTests {
+class UpdateOptionsUnitTests {
 
-	@Test // DATACASS-250, DATACASS-155, DATACASS-708
-	public void shouldConfigureUpdateOptions() {
+	@Test // DATACASS-250, DATACASS-155, DATACASS-708, DATACASS-767
+	void shouldConfigureUpdateOptions() {
 
 		Instant now = Instant.ofEpochSecond(1234);
 
@@ -45,16 +46,18 @@ public class UpdateOptionsUnitTests {
 				.executionProfile("foo") //
 				.serialConsistencyLevel(DefaultConsistencyLevel.LOCAL_ONE) //
 				.withIfExists() //
+				.keyspace(CqlIdentifier.fromCql("my_keyspace")) //
 				.build();
 
 		assertThat(updateOptions.getTtl()).isEqualTo(Duration.ofSeconds(10));
 		assertThat(updateOptions.getTimestamp()).isEqualTo(now.toEpochMilli() * 1000);
 		assertThat(updateOptions.isIfExists()).isTrue();
 		assertThat(updateOptions.getIfCondition()).isNull();
+		assertThat(updateOptions.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("my_keyspace"));
 	}
 
 	@Test // DATACASS-56, DATACASS-155
-	public void buildUpdateOptionsMutate() {
+	void buildUpdateOptionsMutate() {
 
 		UpdateOptions updateOptions = UpdateOptions.builder() //
 				.ttl(10) //
@@ -76,7 +79,7 @@ public class UpdateOptionsUnitTests {
 	}
 
 	@Test // DATACASS-575
-	public void shouldApplyFilterCondition() {
+	void shouldApplyFilterCondition() {
 
 		UpdateOptions updateOptions = UpdateOptions.builder() //
 				.withIfExists() //

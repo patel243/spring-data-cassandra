@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import static org.mockito.Mockito.*;
 
 import java.util.Optional;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -37,9 +39,11 @@ import com.datastax.oss.driver.api.querybuilder.update.Assignment;
  * Unit tests for {@link CachedPreparedStatementCreator}.
  *
  * @author Mark Paluch
+ * @author Aldo Bongio
  */
-@RunWith(MockitoJUnitRunner.class)
-public class CachedPreparedStatementCreatorUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class CachedPreparedStatementCreatorUnitTests {
 
 	@Mock CqlSession session;
 
@@ -49,8 +53,8 @@ public class CachedPreparedStatementCreatorUnitTests {
 
 	@Mock PreparedStatement preparedStatement;
 
-	@Before
-	public void before() {
+	@BeforeEach
+	void before() {
 
 		when(session.getKeyspace()).thenReturn(Optional.of(CqlIdentifier.fromCql("mykeyspace")));
 		when(otherSession.getKeyspace()).thenReturn(Optional.of(CqlIdentifier.fromCql("mykeyspace")));
@@ -60,7 +64,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldPrepareStatement() {
+	void shouldPrepareStatement() {
 
 		String cql = "SELECT foo FROM users;";
 
@@ -76,7 +80,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCachePreparedStatement() {
+	void shouldCachePreparedStatement() {
 
 		String cql = "SELECT foo FROM users;";
 
@@ -91,7 +95,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCachePreparedStatementAcrossSessions() {
+	void shouldCachePreparedStatementAcrossSessions() {
 
 		String cql = "SELECT foo FROM users;";
 
@@ -107,7 +111,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCachePreparedStatementOnKeyspaceLevel() {
+	void shouldCachePreparedStatementOnKeyspaceLevel() {
 
 		String cql = "SELECT foo FROM users;";
 		when(otherKeyspaceSession.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
@@ -124,7 +128,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCacheBuiltPreparedStatement() {
+	void shouldCacheBuiltPreparedStatement() {
 
 		SimpleStatement statement = QueryBuilder.update("users")
 				.set(Assignment.setColumn("foo", QueryBuilder.literal("bar"))).where().build();
@@ -143,7 +147,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCacheSameBuiltPreparedStatements() {
+	void shouldCacheSameBuiltPreparedStatements() {
 
 		SimpleStatement firstStatement = QueryBuilder.update("users")
 				.set(Assignment.setColumn("foo", QueryBuilder.literal("bar"))).where().build();
@@ -161,7 +165,7 @@ public class CachedPreparedStatementCreatorUnitTests {
 	}
 
 	@Test // DATACASS-403
-	public void shouldCacheAdoptDifferencesInCachedPreparedStatements() {
+	void shouldCacheAdoptDifferencesInCachedPreparedStatements() {
 
 		SimpleStatement firstStatement = QueryBuilder.update("users")
 				.set(Assignment.setColumn("foo", QueryBuilder.literal("bar"))).where().build();
@@ -178,5 +182,18 @@ public class CachedPreparedStatementCreatorUnitTests {
 
 		verify(session).prepare(firstStatement);
 		verify(session).prepare(secondStatement);
+	}
+
+	@Test // DATACASS-814
+	void shouldUseCqlTextInCacheKey() {
+
+		String cql = "SELECT foo FROM users;";
+
+		MapPreparedStatementCache cache = MapPreparedStatementCache.create();
+		CachedPreparedStatementCreator creator = CachedPreparedStatementCreator.of(cache, cql);
+		creator.createPreparedStatement(session);
+
+		MapPreparedStatementCache.CacheKey cacheKey = cache.getCache().keySet().iterator().next();
+		assertThat(cacheKey.cql).isEqualTo(cql);
 	}
 }

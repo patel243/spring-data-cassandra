@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.springframework.data.cassandra.core.CassandraOperations;
  * @author Matthew T. Adams
  * @author Mark Paluch
  */
-public class ForceQuotedRepositoryTests {
+class ForceQuotedRepositoryTests {
 
 	ImplicitRepository implicitRepository;
 	ImplicitPropertiesRepository implicitPropertiesRepository;
@@ -37,7 +37,7 @@ public class ForceQuotedRepositoryTests {
 		cassandraTemplate.truncate(Implicit.class);
 	}
 
-	public String query(String columnName, String tableName, String keyColumnName, String key) {
+	private String query(String columnName, String tableName, String keyColumnName, String key) {
 		return cassandraTemplate.getCqlOperations().queryForObject(
 				String.format("select %s from %s where %s = '%s'", columnName, tableName, keyColumnName, key), String.class);
 	}

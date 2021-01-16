@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 the original author or authors.
+ * Copyright 2014-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
  */
 class CassandraOperationsProducer {
 
-	public static final String KEYSPACE_NAME = RandomKeyspaceName.create();
+	private static final String KEYSPACE_NAME = RandomKeyspaceName.create();
 
 	@Produces
 	@Singleton

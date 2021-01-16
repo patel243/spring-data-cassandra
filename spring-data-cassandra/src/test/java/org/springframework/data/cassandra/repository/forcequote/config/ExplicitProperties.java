@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,15 @@ public class ExplicitProperties {
 	public static final String EXPLICIT_PRIMARY_KEY = "ThePrimaryKey";
 	public static final String EXPLICIT_STRING_VALUE = "TheStringValue";
 
-	@PrimaryKey(forceQuote = true, value = EXPLICIT_PRIMARY_KEY) String primaryKey;
+	@PrimaryKey(forceQuote = true, value = EXPLICIT_PRIMARY_KEY) private String primaryKey;
 
-	@Column(forceQuote = true, value = EXPLICIT_STRING_VALUE) String stringValue = UUID.randomUUID().toString();
+	@Column(forceQuote = true, value = EXPLICIT_STRING_VALUE) private String stringValue = UUID.randomUUID().toString();
 
 	public ExplicitProperties() {
 		this(UUID.randomUUID().toString());
 	}
 
-	public ExplicitProperties(String primaryKey) {
+	private ExplicitProperties(String primaryKey) {
 		setPrimaryKey(primaryKey);
 	}
 
@@ -47,7 +47,7 @@ public class ExplicitProperties {
 		return primaryKey;
 	}
 
-	public void setPrimaryKey(String primaryKey) {
+	private void setPrimaryKey(String primaryKey) {
 		this.primaryKey = primaryKey;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class UserDefinedTypeBuilder {
 		return forName(CqlIdentifier.fromCql(typeName));
 	}
 
-	public static UserDefinedTypeBuilder forName(CqlIdentifier typeName) {
+	private static UserDefinedTypeBuilder forName(CqlIdentifier typeName) {
 		return new UserDefinedTypeBuilder(typeName);
 	}
 
@@ -61,13 +61,13 @@ public class UserDefinedTypeBuilder {
 
 		DefaultUserDefinedType type = new DefaultUserDefinedType(CqlIdentifier.fromCql("system"), this.typeName, false,
 				new ArrayList<>(fields.keySet()), new ArrayList<>(fields.values()));
-		return new UserDefinedTypeWrapper(type);
+		return type;
 	}
 
-	static class UserDefinedTypeWrapper implements UserDefinedType {
+	private static class UserDefinedTypeWrapper implements UserDefinedType {
 		private final UserDefinedType delegate;
 
-		UserDefinedTypeWrapper(UserDefinedType delegate) {
+		private UserDefinedTypeWrapper(UserDefinedType delegate) {
 			this.delegate = delegate;
 		}
 
@@ -139,9 +139,28 @@ public class UserDefinedTypeBuilder {
 		}
 
 		@Override
+		public int hashCode() {
+			return delegate.hashCode();
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return super.equals(obj) || delegate.equals(obj);
+		}
+
+		@Override
 		@NonNull
 		public AttachmentPoint getAttachmentPoint() {
 			return delegate.getAttachmentPoint();
+		}
+
+		@Override
+		public String toString() {
+			final StringBuffer sb = new StringBuffer();
+			sb.append(getClass().getSimpleName());
+			sb.append(" [delegate=").append(delegate);
+			sb.append(']');
+			return sb.toString();
 		}
 	}
 }

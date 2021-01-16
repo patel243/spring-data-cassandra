@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import org.springframework.util.Assert;
  *
  * @author Mark Paluch
  * @author Christoph Strobl
+ * @author Jens Schauder
  * @since 2.0
  */
 public class SimpleReactiveCassandraRepository<T, ID> implements ReactiveCassandraRepository<T, ID> {
@@ -69,6 +70,10 @@ public class SimpleReactiveCassandraRepository<T, ID> implements ReactiveCassand
 		this.operations = operations;
 		this.mappingContext = operations.getConverter().getMappingContext();
 	}
+
+	// -------------------------------------------------------------------------
+	// Methods from ReactiveCrudRepository
+	// -------------------------------------------------------------------------
 
 	/* (non-Javadoc)
 	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#save(S)
@@ -112,6 +117,191 @@ public class SimpleReactiveCassandraRepository<T, ID> implements ReactiveCassand
 		return Flux.from(entityStream).flatMap(this::save);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findById(java.lang.Object)
+	 */
+	@Override
+	public Mono<T> findById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		return this.operations.selectOneById(id, this.entityInformation.getJavaType());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findById(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Mono<T> findById(Publisher<ID> publisher) {
+
+		Assert.notNull(publisher, "The Publisher of ids must not be null");
+
+		return Mono.from(publisher).flatMap(this::findById);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#existsById(java.lang.Object)
+	 */
+	@Override
+	public Mono<Boolean> existsById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		return this.operations.exists(id, this.entityInformation.getJavaType());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#existsById(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Mono<Boolean> existsById(Publisher<ID> publisher) {
+
+		Assert.notNull(publisher, "The Publisher of ids must not be null");
+
+		return Mono.from(publisher).flatMap(this::existsById);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAll()
+	 */
+	@Override
+	public Flux<T> findAll() {
+		return this.operations.select(Query.empty(), this.entityInformation.getJavaType());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAllById(java.lang.Iterable)
+	 */
+	@Override
+	public Flux<T> findAllById(Iterable<ID> ids) {
+
+		Assert.notNull(ids, "The given Iterable of ids must not be null");
+
+		if (FindByIdQuery.hasCompositeKeys(ids)) {
+			return findAllById(Flux.fromIterable(ids));
+		}
+
+		if (!ids.iterator().hasNext()) {
+			return Flux.empty();
+		}
+
+		return this.operations.select(createIdsInCollectionQuery(ids), this.entityInformation.getJavaType());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAllById(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Flux<T> findAllById(Publisher<ID> idStream) {
+
+		Assert.notNull(idStream, "The given Publisher of ids must not be null");
+
+		return Flux.from(idStream).flatMap(this::findById);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#count()
+	 */
+	@Override
+	public Mono<Long> count() {
+		return this.operations.count(this.entityInformation.getJavaType());
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteById(java.lang.Object)
+	 */
+	@Override
+	public Mono<Void> deleteById(ID id) {
+
+		Assert.notNull(id, "The given id must not be null");
+
+		return this.operations.deleteById(id, this.entityInformation.getJavaType()).then();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteById(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Mono<Void> deleteById(Publisher<ID> publisher) {
+
+		Assert.notNull(publisher, "The Publisher of ids must not be null");
+
+		return Mono.from(publisher).flatMap(this::deleteById).then();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#delete(java.lang.Object)
+	 */
+	@Override
+	public Mono<Void> delete(T entity) {
+
+		Assert.notNull(entity, "The given entity must not be null");
+
+		return this.operations.delete(entity).then();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAllById(java.lang.Iterable)
+	 */
+	@Override
+	public Mono<Void> deleteAllById(Iterable<? extends ID> ids) {
+
+		Assert.notNull(ids, "The given Iterable of ids must not be null");
+
+		if (FindByIdQuery.hasCompositeKeys(ids)) {
+			return deleteById(Flux.fromIterable(ids));
+		}
+
+		if (!ids.iterator().hasNext()) {
+			return Mono.empty();
+		}
+
+		return this.operations.delete(createIdsInCollectionQuery(ids), this.entityInformation.getJavaType()).then();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll(java.lang.Iterable)
+	 */
+	@Override
+	public Mono<Void> deleteAll(Iterable<? extends T> entities) {
+
+		Assert.notNull(entities, "The given Iterable of entities must not be null");
+
+		return Flux.fromIterable(entities).flatMap(this.operations::delete).then();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll(org.reactivestreams.Publisher)
+	 */
+	@Override
+	public Mono<Void> deleteAll(Publisher<? extends T> entityStream) {
+
+		Assert.notNull(entityStream, "The given Publisher of entities must not be null");
+
+		return Flux.from(entityStream).flatMap(this.operations::delete).then();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll()
+	 */
+	@Override
+	public Mono<Void> deleteAll() {
+		return this.operations.truncate(this.entityInformation.getJavaType());
+	}
+
+	// -------------------------------------------------------------------------
+	// Methods from ReactiveCrudRepository
+	// -------------------------------------------------------------------------
+
 	/* (non-Javadoc)
 	 * @see org.springframework.data.cassandra.repository.ReactiveCassandraRepository#insert(java.lang.Object)
 	 */
@@ -145,173 +335,16 @@ public class SimpleReactiveCassandraRepository<T, ID> implements ReactiveCassand
 		return Flux.from(entityStream).flatMap(this.operations::insert);
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#count()
-	 */
-	@Override
-	public Mono<Long> count() {
-		return this.operations.count(this.entityInformation.getJavaType());
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#existsById(java.lang.Object)
-	 */
-	@Override
-	public Mono<Boolean> existsById(ID id) {
-
-		Assert.notNull(id, "The given id must not be null");
-
-		return this.operations.exists(id, this.entityInformation.getJavaType());
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#existsById(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Mono<Boolean> existsById(Publisher<ID> publisher) {
-
-		Assert.notNull(publisher, "The Publisher of ids must not be null");
-
-		return Mono.from(publisher).flatMap(this::existsById);
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findById(java.lang.Object)
-	 */
-	@Override
-	public Mono<T> findById(ID id) {
-
-		Assert.notNull(id, "The given id must not be null");
-
-		return this.operations.selectOneById(id, this.entityInformation.getJavaType());
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findById(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Mono<T> findById(Publisher<ID> publisher) {
-
-		Assert.notNull(publisher, "The Publisher of ids must not be null");
-
-		return Mono.from(publisher).flatMap(this::findById);
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAll()
-	 */
-	@Override
-	public Flux<T> findAll() {
-		return this.operations.select(Query.empty(), this.entityInformation.getJavaType());
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAllById(java.lang.Iterable)
-	 */
-	@Override
-	public Flux<T> findAllById(Iterable<ID> ids) {
-
-		Assert.notNull(ids, "The given Iterable of ids must not be null");
-
-		if (FindByIdQuery.hasCompositeKeys(ids)) {
-			return findAllById(Flux.fromIterable(ids));
-		}
+	private Query createIdsInCollectionQuery(Iterable<? extends ID> ids) {
 
 		FindByIdQuery query = FindByIdQuery.forIds(ids);
 		List<Object> idCollection = query.getIdCollection();
 		String idField = query.getIdProperty();
 
-		if (idCollection.isEmpty()) {
-			return Flux.empty();
-		}
-
 		if (idField == null) {
 			idField = this.entityInformation.getIdAttribute();
 		}
 
-		return this.operations.select(Query.query(where(idField).in(idCollection)), this.entityInformation.getJavaType());
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#findAllById(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Flux<T> findAllById(Publisher<ID> idStream) {
-
-		Assert.notNull(idStream, "The given Publisher of ids must not be null");
-
-		return Flux.from(idStream).flatMap(this::findById);
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#delete(java.lang.Object)
-	 */
-	@Override
-	public Mono<Void> delete(T entity) {
-
-		Assert.notNull(entity, "The given entity must not be null");
-
-		return this.operations.delete(entity).then();
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteById(java.lang.Object)
-	 */
-	@Override
-	public Mono<Void> deleteById(ID id) {
-
-		Assert.notNull(id, "The given id must not be null");
-
-		return this.operations.deleteById(id, this.entityInformation.getJavaType()).then();
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteById(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Mono<Void> deleteById(Publisher<ID> publisher) {
-
-		Assert.notNull(publisher, "The Publisher of ids must not be null");
-
-		return Mono.from(publisher).flatMap(this::deleteById).then();
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll()
-	 */
-	@Override
-	public Mono<Void> deleteAll() {
-		return this.operations.truncate(this.entityInformation.getJavaType());
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll(java.lang.Iterable)
-	 */
-	@Override
-	public Mono<Void> deleteAll(Iterable<? extends T> entities) {
-
-		Assert.notNull(entities, "The given Iterable of entities must not be null");
-
-		return Flux.fromIterable(entities).flatMap(this.operations::delete).then();
-	}
-
-	/* (non-Javadoc)
-	 * @see org.springframework.data.repository.reactive.ReactiveCrudRepository#deleteAll(org.reactivestreams.Publisher)
-	 */
-	@Override
-	public Mono<Void> deleteAll(Publisher<? extends T> entityStream) {
-
-		Assert.notNull(entityStream, "The given Publisher of entities must not be null");
-
-		return Flux.from(entityStream).flatMap(this.operations::delete).then();
+		return Query.query(where(idField).in(idCollection));
 	}
 }

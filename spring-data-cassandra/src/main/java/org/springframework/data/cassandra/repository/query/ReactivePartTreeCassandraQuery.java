@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package org.springframework.data.cassandra.repository.query;
+
+import reactor.core.publisher.Mono;
 
 import org.springframework.data.cassandra.core.ReactiveCassandraOperations;
 import org.springframework.data.cassandra.core.StatementFactory;
@@ -94,22 +96,25 @@ public class ReactivePartTreeCassandraQuery extends AbstractReactiveCassandraQue
 	 * @see org.springframework.data.cassandra.repository.query.AbstractCassandraQuery#createQuery(org.springframework.data.cassandra.repository.query.CassandraParameterAccessor, boolean)
 	 */
 	@Override
-	protected SimpleStatement createQuery(CassandraParameterAccessor parameterAccessor) {
+	protected Mono<SimpleStatement> createQuery(CassandraParameterAccessor parameterAccessor) {
 
-		if (isCountQuery()) {
-			return getQueryStatementCreator().count(getStatementFactory(), getTree(), parameterAccessor);
-		}
+		return Mono.fromSupplier(() -> {
 
-		if (isExistsQuery()) {
-			return getQueryStatementCreator().exists(getStatementFactory(), getTree(), parameterAccessor);
-		}
+			if (isCountQuery()) {
+				return getQueryStatementCreator().count(getStatementFactory(), getTree(), parameterAccessor);
+			}
 
-		if (getTree().isDelete()) {
-			return getQueryStatementCreator().delete(getStatementFactory(), getTree(), parameterAccessor);
-		}
+			if (isExistsQuery()) {
+				return getQueryStatementCreator().exists(getStatementFactory(), getTree(), parameterAccessor);
+			}
 
-		return getQueryStatementCreator().select(getStatementFactory(), getTree(), parameterAccessor,
-				getQueryMethod().getResultProcessor());
+			if (getTree().isDelete()) {
+				return getQueryStatementCreator().delete(getStatementFactory(), getTree(), parameterAccessor);
+			}
+
+			return getQueryStatementCreator().select(getStatementFactory(), getTree(), parameterAccessor,
+					getQueryMethod().getResultProcessor());
+		});
 	}
 
 	/* (non-Javadoc)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import reactor.test.StepVerifier;
 
 import java.util.Collections;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.cassandra.core.convert.MappingCassandraConverter;
@@ -34,7 +34,7 @@ import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.Indexed;
 import org.springframework.data.cassandra.core.mapping.Table;
 import org.springframework.data.cassandra.core.query.Query;
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 
@@ -43,17 +43,17 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  *
  * @author Mark Paluch
  */
-public class ReactiveDeleteOperationSupportIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
+class ReactiveDeleteOperationSupportIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
 
-	CassandraAdminTemplate admin;
+	private CassandraAdminTemplate admin;
 
-	ReactiveCassandraTemplate template;
+	private ReactiveCassandraTemplate template;
 
-	Person han;
-	Person luke;
+	private Person han;
+	private Person luke;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		admin = new CassandraAdminTemplate(session, new MappingCassandraConverter());
 		template = new ReactiveCassandraTemplate(new DefaultBridgedReactiveSession(session));
@@ -76,7 +76,7 @@ public class ReactiveDeleteOperationSupportIntegrationTests extends AbstractKeys
 	}
 
 	@Test // DATACASS-485
-	public void removeAllMatching() {
+	void removeAllMatching() {
 
 		Mono<WriteResult> writeResult = this.template
 				.delete(Person.class)
@@ -87,7 +87,7 @@ public class ReactiveDeleteOperationSupportIntegrationTests extends AbstractKeys
 	}
 
 	@Test // DATACASS-485
-	public void removeAllMatchingWithAlternateDomainTypeAndCollection() {
+	void removeAllMatchingWithAlternateDomainTypeAndCollection() {
 
 		Mono<WriteResult> writeResult = this.template
 				.delete(Jedi.class).inTable("person")

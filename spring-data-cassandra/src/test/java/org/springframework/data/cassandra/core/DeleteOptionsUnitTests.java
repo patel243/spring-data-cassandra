@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ import static org.assertj.core.api.Assertions.*;
 import java.time.Duration;
 import java.time.Instant;
 
-import org.junit.Test;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.query.Query;
 
@@ -31,10 +32,10 @@ import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
  *
  * @author Mark Paluch
  */
-public class DeleteOptionsUnitTests {
+class DeleteOptionsUnitTests {
 
-	@Test // DATACASS-575, DATACASS-708
-	public void shouldConfigureDeleteOptions() {
+	@Test // DATACASS-575, DATACASS-708, DATACASS-767
+	void shouldConfigureDeleteOptions() {
 
 		Instant now = Instant.ofEpochSecond(1234);
 
@@ -44,17 +45,18 @@ public class DeleteOptionsUnitTests {
 				.withIfExists() //
 				.executionProfile("foo") //
 				.serialConsistencyLevel(DefaultConsistencyLevel.LOCAL_ONE) //
+				.keyspace(CqlIdentifier.fromCql("my_keyspace"))
 				.build();
-
 
 		assertThat(deleteOptions.getTtl()).isEqualTo(Duration.ofSeconds(10));
 		assertThat(deleteOptions.getTimestamp()).isEqualTo(now.toEpochMilli() * 1000);
 		assertThat(deleteOptions.isIfExists()).isTrue();
 		assertThat(deleteOptions.getIfCondition()).isNull();
+		assertThat(deleteOptions.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("my_keyspace"));
 	}
 
 	@Test // DATACASS-575
-	public void buildDeleteOptionsMutate() {
+	void buildDeleteOptionsMutate() {
 
 		DeleteOptions deleteOptions = DeleteOptions.builder() //
 				.ttl(10) //
@@ -73,7 +75,7 @@ public class DeleteOptionsUnitTests {
 	}
 
 	@Test // DATACASS-575
-	public void shouldApplyFilterCondition() {
+	void shouldApplyFilterCondition() {
 
 		DeleteOptions deleteOptions = DeleteOptions.builder() //
 				.withIfExists() //

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
@@ -44,6 +46,7 @@ import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.util.concurrent.ListenableFuture;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
@@ -60,8 +63,9 @@ import com.datastax.oss.driver.api.core.servererrors.InvalidQueryException;
  *
  * @author Mark Paluch
  */
-@RunWith(MockitoJUnitRunner.class)
-public class AsyncCqlTemplateUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class AsyncCqlTemplateUnitTests {
 
 	@Mock CqlSession session;
 	@Mock AsyncResultSet resultSet;
@@ -70,10 +74,10 @@ public class AsyncCqlTemplateUnitTests {
 	@Mock BoundStatement boundStatement;
 	@Mock ColumnDefinitions columnDefinitions;
 
-	AsyncCqlTemplate template;
+	private AsyncCqlTemplate template;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 
 		this.template = new AsyncCqlTemplate();
 		this.template.setSession(session);
@@ -84,7 +88,7 @@ public class AsyncCqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeCallbackShouldTranslateExceptions() {
+	void executeCallbackShouldTranslateExceptions() {
 
 		try {
 			template.execute((AsyncSessionCallback<String>) session -> {
@@ -98,7 +102,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeCqlShouldTranslateExceptions() throws Exception {
+	void executeCqlShouldTranslateExceptions() throws Exception {
 
 		TestResultSetFuture resultSetFuture = TestResultSetFuture.failed(new NoNodeAvailableException());
 		when(session.executeAsync(any(Statement.class))).thenReturn(resultSetFuture);
@@ -120,7 +124,7 @@ public class AsyncCqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeCqlShouldCallExecution() {
+	void executeCqlShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -130,10 +134,24 @@ public class AsyncCqlTemplateUnitTests {
 		});
 	}
 
-	@Test // DATACASS-292
-	public void executeCqlWithArgumentsShouldCallExecution() {
+	@Test // DATACASS-767
+	void executePreparedStatementShouldApplyKeyspace() {
 
-		doTestStrings(5, ConsistencyLevel.ONE, asyncCqlTemplate -> {
+		doTestStrings(null, null, CqlIdentifier.fromCql("ks1"), cqlTemplate -> {
+			cqlTemplate.execute("SELECT * from USERS", (session, ps) -> session.executeAsync(ps.bind("A")));
+		});
+
+		ArgumentCaptor<SimpleStatement> captor = ArgumentCaptor.forClass(SimpleStatement.class);
+		verify(session).prepareAsync(captor.capture());
+
+		SimpleStatement statement = captor.getValue();
+		assertThat(statement.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("ks1"));
+	}
+
+	@Test // DATACASS-292
+	void executeCqlWithArgumentsShouldCallExecution() {
+
+		doTestStrings(5, ConsistencyLevel.ONE, null, asyncCqlTemplate -> {
 
 			asyncCqlTemplate.execute("SELECT * from USERS");
 
@@ -142,7 +160,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForResultSetShouldCallExecution() {
+	void queryForResultSetShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -154,33 +172,33 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetExtractorShouldCallExecution() {
+	void queryWithResultSetExtractorShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
 			List<String> rows = getUninterruptibly(
 					asyncCqlTemplate.query("SELECT * from USERS", (row, index) -> row.getString(0)));
 
-			assertThat(rows).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(rows).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).executeAsync(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetExtractorWithArgumentsShouldCallExecution() {
+	void queryWithResultSetExtractorWithArgumentsShouldCallExecution() {
 
-		doTestStrings(5, ConsistencyLevel.ONE, asyncCqlTemplate -> {
+		doTestStrings(5, ConsistencyLevel.ONE, null, asyncCqlTemplate -> {
 
 			List<String> rows = getUninterruptibly(
 					asyncCqlTemplate.query("SELECT * from USERS", (row, index) -> row.getString(0)));
 
-			assertThat(rows).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(rows).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).executeAsync(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryCqlShouldTranslateExceptions() throws Exception {
+	void queryCqlShouldTranslateExceptions() throws Exception {
 
 		TestResultSetFuture resultSetFuture = TestResultSetFuture.failed(new NoNodeAvailableException());
 		when(session.executeAsync(any(Statement.class))).thenReturn(resultSetFuture);
@@ -199,7 +217,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldBeEmpty() throws Exception {
+	void queryForObjectCqlShouldBeEmpty() throws Exception {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.emptyList());
@@ -217,7 +235,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldReturnRecord() {
+	void queryForObjectCqlShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -227,7 +245,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldReturnNullValue() {
+	void queryForObjectCqlShouldReturnNullValue() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -237,7 +255,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldFailReturningManyRecords() throws Exception {
+	void queryForObjectCqlShouldFailReturningManyRecords() throws Exception {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Arrays.asList(row, row));
@@ -254,7 +272,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlWithTypeShouldReturnRecord() {
+	void queryForObjectCqlWithTypeShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -268,7 +286,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListCqlWithTypeShouldReturnRecord() {
+	void queryForListCqlWithTypeShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Arrays.asList(row, row));
@@ -282,7 +300,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeCqlShouldReturnWasApplied() {
+	void executeCqlShouldReturnWasApplied() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.wasApplied()).thenReturn(true);
@@ -297,7 +315,7 @@ public class AsyncCqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeStatementShouldCallExecution() {
+	void executeStatementShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -308,9 +326,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeStatementWithArgumentsShouldCallExecution() {
+	void executeStatementWithArgumentsShouldCallExecution() {
 
-		doTestStrings(5, ConsistencyLevel.ONE, asyncCqlTemplate -> {
+		doTestStrings(5, ConsistencyLevel.ONE, null, asyncCqlTemplate -> {
 
 			asyncCqlTemplate.execute(SimpleStatement.newInstance("SELECT * from USERS"));
 
@@ -319,7 +337,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForResultStatementSetShouldCallExecution() {
+	void queryForResultStatementSetShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -332,33 +350,33 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetStatementExtractorShouldCallExecution() {
+	void queryWithResultSetStatementExtractorShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
 			ListenableFuture<List<String>> future = asyncCqlTemplate.query(SimpleStatement.newInstance("SELECT * from USERS"),
 					(row, index) -> row.getString(0));
 
-			assertThat(getUninterruptibly(future)).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(getUninterruptibly(future)).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).executeAsync(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetStatementExtractorWithArgumentsShouldCallExecution() {
+	void queryWithResultSetStatementExtractorWithArgumentsShouldCallExecution() {
 
-		doTestStrings(5, ConsistencyLevel.ONE, asyncCqlTemplate -> {
+		doTestStrings(5, ConsistencyLevel.ONE, null, asyncCqlTemplate -> {
 
 			ListenableFuture<List<String>> future = asyncCqlTemplate.query(SimpleStatement.newInstance("SELECT * from USERS"),
 					(row, index) -> row.getString(0));
 
-			assertThat(getUninterruptibly(future)).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(getUninterruptibly(future)).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).executeAsync(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryStatementShouldTranslateExceptions() throws Exception {
+	void queryStatementShouldTranslateExceptions() throws Exception {
 
 		TestResultSetFuture resultSetFuture = TestResultSetFuture.failed(new NoNodeAvailableException());
 		when(session.executeAsync(any(Statement.class))).thenReturn(resultSetFuture);
@@ -377,7 +395,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldBeEmpty() throws Exception {
+	void queryForObjectStatementShouldBeEmpty() throws Exception {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.emptyList());
@@ -396,7 +414,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnRecord() {
+	void queryForObjectStatementShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -407,7 +425,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnNullValue() {
+	void queryForObjectStatementShouldReturnNullValue() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -418,7 +436,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldFailReturningManyRecords() throws Exception {
+	void queryForObjectStatementShouldFailReturningManyRecords() throws Exception {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Arrays.asList(row, row));
@@ -436,7 +454,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementWithTypeShouldReturnRecord() {
+	void queryForObjectStatementWithTypeShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -451,7 +469,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListStatementWithTypeShouldReturnRecord() {
+	void queryForListStatementWithTypeShouldReturnRecord() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Arrays.asList(row, row));
@@ -466,7 +484,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeStatementShouldReturnWasApplied() {
+	void executeStatementShouldReturnWasApplied() {
 
 		when(session.executeAsync(any(Statement.class))).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.wasApplied()).thenReturn(true);
@@ -481,7 +499,7 @@ public class AsyncCqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementWithCallbackShouldCallExecution() {
+	void queryPreparedStatementWithCallbackShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -497,7 +515,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executePreparedStatementWithCallbackShouldCallExecution() {
+	void executePreparedStatementWithCallbackShouldCallExecution() {
 
 		doTestStrings(asyncCqlTemplate -> {
 
@@ -511,7 +529,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executePreparedStatementCreatorShouldTranslateStatementCreationExceptions() throws Exception {
+	void executePreparedStatementCreatorShouldTranslateStatementCreationExceptions() throws Exception {
 
 		try {
 			template.execute(session -> {
@@ -537,7 +555,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executePreparedStatementCreatorShouldTranslateStatementCallbackExceptions() throws Exception {
+	void executePreparedStatementCreatorShouldTranslateStatementCallbackExceptions() throws Exception {
 
 		ListenableFuture<?> future = template.execute(session -> new AsyncResult<>(preparedStatement), (session, ps) -> {
 			throw new NoNodeAvailableException();
@@ -554,7 +572,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorShouldReturnResult() {
+	void queryPreparedStatementCreatorShouldReturnResult() {
 
 		when(preparedStatement.bind()).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -568,7 +586,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldReturnResult() {
+	void queryPreparedStatementCreatorAndBinderShouldReturnResult() {
 
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -584,7 +602,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslatePrepareStatementExceptions() throws Exception {
+	void queryPreparedStatementCreatorAndBinderShouldTranslatePrepareStatementExceptions() throws Exception {
 
 		ListenableFuture<AsyncResultSet> future = template
 				.query(session -> AsyncResult.forExecutionException(new NoNodeAvailableException()), ps -> {
@@ -602,7 +620,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslateBindExceptions() throws Exception {
+	void queryPreparedStatementCreatorAndBinderShouldTranslateBindExceptions() throws Exception {
 
 		ListenableFuture<AsyncResultSet> future = template.query(session -> new AsyncResult<>(preparedStatement), ps -> {
 			throw new NoNodeAvailableException();
@@ -617,7 +635,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslateExecutionExceptions() throws Exception {
+	void queryPreparedStatementCreatorAndBinderShouldTranslateExecutionExceptions() throws Exception {
 
 		TestResultSetFuture resultSetFuture = TestResultSetFuture.failed(new NoNodeAvailableException());
 
@@ -637,7 +655,7 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderAndMapperShouldReturnResult() {
+	void queryPreparedStatementCreatorAndBinderAndMapperShouldReturnResult() {
 
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
 		when(resultSet.currentPage()).thenReturn(Collections.singleton(row));
@@ -652,9 +670,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldBeEmpty() throws Exception {
+	void queryForObjectPreparedStatementShouldBeEmpty() throws Exception {
 
-		when(session.prepareAsync("SELECT * FROM user WHERE username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -674,9 +692,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldReturnRecord() {
+	void queryForObjectPreparedStatementShouldReturnRecord() {
 
-		when(session.prepareAsync("SELECT * FROM user WHERE username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -688,9 +706,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldFailReturningManyRecords() throws Exception {
+	void queryForObjectPreparedStatementShouldFailReturningManyRecords() throws Exception {
 
-		when(session.prepareAsync("SELECT * FROM user WHERE username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -709,9 +727,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementWithTypeShouldReturnRecord() {
+	void queryForObjectPreparedStatementWithTypeShouldReturnRecord() {
 
-		when(session.prepareAsync("SELECT * FROM user WHERE username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -726,9 +744,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListPreparedStatementWithTypeShouldReturnRecord() {
+	void queryForListPreparedStatementWithTypeShouldReturnRecord() {
 
-		when(session.prepareAsync("SELECT * FROM user WHERE username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -744,9 +762,9 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void updatePreparedStatementShouldReturnApplied() {
+	void updatePreparedStatementShouldReturnApplied() {
 
-		when(session.prepareAsync("UPDATE user SET username = ?"))
+		when(session.prepareAsync(any(SimpleStatement.class)))
 				.thenReturn(new TestPreparedStatementFuture(preparedStatement));
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.executeAsync(boundStatement)).thenReturn(new TestResultSetFuture(resultSet));
@@ -758,18 +776,21 @@ public class AsyncCqlTemplateUnitTests {
 	}
 
 	private void doTestStrings(Consumer<AsyncCqlTemplate> cqlTemplateConsumer) {
-		doTestStrings(null, null, cqlTemplateConsumer);
+		doTestStrings(null, null, null, cqlTemplateConsumer);
 	}
 
 	private void doTestStrings(@Nullable Integer fetchSize, @Nullable ConsistencyLevel consistencyLevel,
+			@Nullable CqlIdentifier keyspace,
 			Consumer<AsyncCqlTemplate> cqlTemplateConsumer) {
 
-		String[] results = { "Walter", "Hank", " Jesse" };
+		String[] results = { "Walter", "Hank", "Jesse" };
 
 		when(this.session.executeAsync((Statement) any())).thenReturn(new TestResultSetFuture(resultSet));
 		when(this.resultSet.currentPage()).thenReturn(Arrays.asList(row, row, row));
 		when(this.row.getString(0)).thenReturn(results[0], results[1], results[2]);
 		when(this.session.prepareAsync(anyString())).thenReturn(new TestPreparedStatementFuture(this.preparedStatement));
+		when(this.session.prepareAsync(any(SimpleStatement.class)))
+				.thenReturn(new TestPreparedStatementFuture(this.preparedStatement));
 
 		AsyncCqlTemplate template = new AsyncCqlTemplate();
 		template.setSession(this.session);
@@ -777,8 +798,13 @@ public class AsyncCqlTemplateUnitTests {
 		if (fetchSize != null) {
 			template.setFetchSize(fetchSize);
 		}
+
 		if (consistencyLevel != null) {
 			template.setConsistencyLevel(consistencyLevel);
+		}
+
+		if (keyspace != null) {
+			template.setKeyspace(keyspace);
 		}
 
 		cqlTemplateConsumer.accept(template);
@@ -808,9 +834,9 @@ public class AsyncCqlTemplateUnitTests {
 
 	private static class TestResultSetFuture extends CompletableFuture<AsyncResultSet> {
 
-		public TestResultSetFuture() {}
+		private TestResultSetFuture() {}
 
-		public TestResultSetFuture(AsyncResultSet result) {
+		private TestResultSetFuture(AsyncResultSet result) {
 			complete(result);
 		}
 
@@ -820,7 +846,7 @@ public class AsyncCqlTemplateUnitTests {
 		 * @param throwable must not be {@literal null}.
 		 * @return the completed/failed {@link TestResultSetFuture}.
 		 */
-		public static TestResultSetFuture failed(Throwable throwable) {
+		private static TestResultSetFuture failed(Throwable throwable) {
 
 			TestResultSetFuture future = new TestResultSetFuture();
 			future.completeExceptionally(throwable);
@@ -832,7 +858,7 @@ public class AsyncCqlTemplateUnitTests {
 
 		public TestPreparedStatementFuture() {}
 
-		public TestPreparedStatementFuture(PreparedStatement ps) {
+		private TestPreparedStatementFuture(PreparedStatement ps) {
 			complete(ps);
 		}
 

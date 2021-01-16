@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.data.mapping.model.EntityInstantiators;
 import org.springframework.data.repository.query.ResultProcessor;
 import org.springframework.data.repository.query.ReturnedType;
+import org.springframework.data.util.ReflectionUtils;
 import org.springframework.util.ClassUtils;
 
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -49,7 +50,7 @@ import com.datastax.oss.driver.api.core.cql.Statement;
 @FunctionalInterface
 interface ReactiveCassandraQueryExecution {
 
-	Object execute(Statement<?> statement, Class<?> type);
+	Publisher<? extends Object> execute(Statement<?> statement, Class<?> type);
 
 	/**
 	 * {@link ReactiveCassandraQueryExecution} for a {@link org.springframework.data.domain.Slice}.
@@ -72,7 +73,7 @@ interface ReactiveCassandraQueryExecution {
 		 * @see org.springframework.data.cassandra.repository.query.CassandraQueryExecution#execute(java.lang.String, java.lang.Class)
 		 */
 		@Override
-		public Object execute(Statement<?> statement, Class<?> type) {
+		public Publisher<? extends Object> execute(Statement<?> statement, Class<?> type) {
 
 			CassandraPageRequest.validatePageable(pageable);
 
@@ -114,7 +115,7 @@ interface ReactiveCassandraQueryExecution {
 		 * @see org.springframework.data.cassandra.repository.query.ReactiveCassandraQueryExecution#execute(java.lang.String, java.lang.Class)
 		 */
 		@Override
-		public Object execute(Statement<?> statement, Class<?> type) {
+		public Publisher<? extends Object> execute(Statement<?> statement, Class<?> type) {
 			return operations.select(statement, type);
 		}
 	}
@@ -139,19 +140,19 @@ interface ReactiveCassandraQueryExecution {
 		 * @see org.springframework.data.cassandra.repository.query.ReactiveCassandraQueryExecution#execute(java.lang.String, java.lang.Class)
 		 */
 		@Override
-		public Object execute(Statement<?> statement, Class<?> type) {
+		public Publisher<? extends Object> execute(Statement<?> statement, Class<?> type) {
 
-			return operations.select(statement, type).buffer(2).map(objects -> {
+			return operations.select(statement, type).buffer(2).handle((objects, sink) -> {
 
 				if (objects.isEmpty()) {
-					return null;
+					return;
 				}
 
 				if (objects.size() == 1 || limiting) {
-					return objects.get(0);
+					sink.next(objects.get(0));
 				}
 
-				throw new IncorrectResultSizeDataAccessException(1, objects.size());
+				sink.error(new IncorrectResultSizeDataAccessException(1, objects.size()));
 			});
 		}
 	}
@@ -175,9 +176,9 @@ interface ReactiveCassandraQueryExecution {
 		 * @see org.springframework.data.cassandra.repository.query.ReactiveCassandraQueryExecution#execute(com.datastax.oss.driver.api.core.cql.Statement, java.lang.Class)
 		 */
 		@Override
-		public Object execute(Statement<?> statement, Class<?> type) {
+		public Publisher<? extends Object> execute(Statement<?> statement, Class<?> type) {
 
-			Mono<List<Row>> rows = this.operations.getReactiveCqlOperations().queryForRows(statement).buffer(2).next();
+			Mono<List<Row>> rows = this.operations.select(statement, Row.class).buffer(2).next();
 
 			return rows.map(it -> {
 
@@ -223,8 +224,8 @@ interface ReactiveCassandraQueryExecution {
 		 * @see org.springframework.data.cassandra.repository.query.ReactiveCassandraQueryExecution#execute(java.lang.String, java.lang.Class)
 		 */
 		@Override
-		public Object execute(Statement<?> statement, Class<?> type) {
-			return converter.convert(delegate.execute(statement, type));
+		public Publisher<? extends Object> execute(Statement<?> statement, Class<?> type) {
+			return (Publisher) converter.convert(delegate.execute(statement, type));
 		}
 	}
 
@@ -256,7 +257,7 @@ interface ReactiveCassandraQueryExecution {
 
 			ReturnedType returnedType = processor.getReturnedType();
 
-			if (returnedType.getReturnedType().equals(Void.class)) {
+			if (ReflectionUtils.isVoid(returnedType.getReturnedType())) {
 
 				if (source instanceof Mono) {
 					return ((Mono<?>) source).then();

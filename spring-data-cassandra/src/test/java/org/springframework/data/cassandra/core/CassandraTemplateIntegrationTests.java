@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.springframework.data.cassandra.core;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.Assume.*;
 import static org.springframework.data.cassandra.core.query.Criteria.*;
 
@@ -35,18 +36,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import org.springframework.data.annotation.Id;
+import org.springframework.data.cassandra.CassandraInvalidQueryException;
 import org.springframework.data.cassandra.core.convert.MappingCassandraConverter;
 import org.springframework.data.cassandra.core.cql.CqlTemplate;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
+import org.springframework.data.cassandra.core.cql.QueryOptions;
 import org.springframework.data.cassandra.core.mapping.BasicMapId;
 import org.springframework.data.cassandra.core.mapping.Embedded;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyClass;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 import org.springframework.data.cassandra.core.mapping.SimpleUserTypeResolver;
+import org.springframework.data.cassandra.core.mapping.Table;
 import org.springframework.data.cassandra.core.mapping.UserDefinedType;
 import org.springframework.data.cassandra.core.query.CassandraPageRequest;
 import org.springframework.data.cassandra.core.query.Columns;
@@ -57,7 +62,7 @@ import org.springframework.data.cassandra.domain.User;
 import org.springframework.data.cassandra.domain.UserToken;
 import org.springframework.data.cassandra.repository.support.SchemaTestUtils;
 import org.springframework.data.cassandra.support.CassandraVersion;
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.util.Version;
@@ -70,17 +75,19 @@ import com.datastax.oss.driver.api.core.uuid.Uuids;
  *
  * @author Mark Paluch
  * @author Christoph Strobl
+ * @author Tomasz Lelek
  */
-public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
+class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
 
-	static final Version CASSANDRA_3 = Version.parse("3.0");
+	private static final Version CASSANDRA_3 = Version.parse("3.0");
+	private static final Version CASSANDRA_4 = Version.parse("4.0");
 
-	Version cassandraVersion;
+	private Version cassandraVersion;
 
-	CassandraTemplate template;
+	private CassandraTemplate template;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		MappingCassandraConverter converter = new MappingCassandraConverter();
 		converter.setUserTypeResolver(new SimpleUserTypeResolver(session, CqlIdentifier.fromCql(keyspace)));
@@ -89,6 +96,8 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		cassandraVersion = CassandraVersion.get(session);
 
 		template = new CassandraTemplate(new CqlTemplate(session), converter);
+
+		prepareTemplate(template);
 
 		SchemaTestUtils.potentiallyCreateTableFor(User.class, template);
 		SchemaTestUtils.potentiallyCreateTableFor(UserToken.class, template);
@@ -100,6 +109,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		SchemaTestUtils.potentiallyCreateTableFor(WithPrefixedNullableEmbeddedType.class, template);
 		SchemaTestUtils.createTableAndTypes(OuterWithNullableEmbeddedType.class, template);
 		SchemaTestUtils.createTableAndTypes(OuterWithPrefixedNullableEmbeddedType.class, template);
+		SchemaTestUtils.createTableAndTypes(WithMappedUdtList.class, template);
 		SchemaTestUtils.truncate(User.class, template);
 		SchemaTestUtils.truncate(UserToken.class, template);
 		SchemaTestUtils.truncate(BookReference.class, template);
@@ -109,10 +119,20 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		SchemaTestUtils.truncate(WithPrefixedNullableEmbeddedType.class, template);
 		SchemaTestUtils.truncate(OuterWithNullableEmbeddedType.class, template);
 		SchemaTestUtils.truncate(OuterWithPrefixedNullableEmbeddedType.class, template);
+		SchemaTestUtils.truncate(WithMappedUdtList.class, template);
+	}
+
+	/**
+	 * Post-process the {@link CassandraTemplate} before running the tests.
+	 *
+	 * @param template
+	 */
+	void prepareTemplate(CassandraTemplate template) {
+
 	}
 
 	@Test // DATACASS-343
-	public void shouldSelectByQueryWithAllowFiltering() {
+	void shouldSelectByQueryWithAllowFiltering() {
 
 		assumeTrue(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_3));
 
@@ -132,7 +152,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-343
-	public void shouldSelectByQueryWithSorting() {
+	void shouldSelectByQueryWithSorting() {
 
 		UserToken token1 = new UserToken();
 		token1.setUserId(Uuids.endOf(System.currentTimeMillis()));
@@ -154,7 +174,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-638
-	public void shouldSelectProjection() {
+	void shouldSelectProjection() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -172,7 +192,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-638
-	public void shouldSelectProjectionWithCompositeKey() {
+	void shouldSelectProjectionWithCompositeKey() {
 
 		CompositeKey key = new CompositeKey("Walter", "White");
 		TypeWithCompositeKey user = new TypeWithCompositeKey(key, "comment");
@@ -192,8 +212,23 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		assertThat(loadedEntity.getComment()).isNotNull();
 	}
 
+	@Test // DATACASS-828
+	void shouldSelectClosedProjectionWithCompositeKey() {
+
+		CompositeKey key = new CompositeKey("Walter", "White");
+		TypeWithCompositeKey user = new TypeWithCompositeKey(key, "comment");
+
+		template.insert(user);
+
+		WithCompositeKeyProjection loaded = template.query(TypeWithCompositeKey.class).as(WithCompositeKeyProjection.class)
+				.firstValue();
+		assertThat(loaded).isNotNull();
+
+		assertThat(loaded.getKey()).isEqualTo(key);
+	}
+
 	@Test // DATACASS-343
-	public void shouldSelectOneByQuery() {
+	void shouldSelectOneByQuery() {
 
 		UserToken token1 = new UserToken();
 		token1.setUserId(Uuids.endOf(System.currentTimeMillis()));
@@ -209,7 +244,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292, DATACASS-573
-	public void insertShouldInsertEntity() {
+	void insertShouldInsertEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -222,7 +257,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-250, DATACASS-573
-	public void insertShouldCreateEntityWithLwt() {
+	void insertShouldCreateEntityWithLwt() {
 
 		InsertOptions lwtOptions = InsertOptions.builder().withIfNotExists().build();
 
@@ -235,7 +270,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-250, DATACASS-573
-	public void insertShouldNotUpdateEntityWithLwt() {
+	void insertShouldNotUpdateEntityWithLwt() {
 
 		InsertOptions lwtOptions = InsertOptions.builder().withIfNotExists().build();
 
@@ -252,7 +287,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292
-	public void shouldInsertAndCountEntities() {
+	void shouldInsertAndCountEntities() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -263,7 +298,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-155
-	public void shouldNotOverrideLaterMutation() {
+	void shouldNotOverrideLaterMutation() {
 
 		Instant now = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant();
 		User user = new User("heisenberg", "Walter", "White");
@@ -282,7 +317,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-512
-	public void shouldInsertEntityAndCountByQuery() {
+	void shouldInsertEntityAndCountByQuery() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -293,7 +328,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-512
-	public void shouldInsertEntityAndExistsByQuery() {
+	void shouldInsertEntityAndExistsByQuery() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -304,7 +339,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292, DATACASS-573
-	public void updateShouldUpdateEntity() {
+	void updateShouldUpdateEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -318,7 +353,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292
-	public void updateShouldNotCreateEntityWithLwt() {
+	void updateShouldNotCreateEntityWithLwt() {
 
 		UpdateOptions lwtOptions = UpdateOptions.builder().withIfExists().build();
 
@@ -331,7 +366,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292
-	public void updateShouldUpdateEntityWithLwt() {
+	void updateShouldUpdateEntityWithLwt() {
 
 		UpdateOptions lwtOptions = UpdateOptions.builder().withIfExists().build();
 
@@ -347,7 +382,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-343
-	public void updateShouldUpdateEntityByQuery() {
+	void updateShouldUpdateEntityByQuery() {
 
 		User person = new User("heisenberg", "Walter", "White");
 		template.insert(person);
@@ -360,7 +395,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-343
-	public void deleteByQueryShouldRemoveEntity() {
+	void deleteByQueryShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -372,7 +407,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-343
-	public void deleteColumnsByQueryShouldRemoveColumn() {
+	void deleteColumnsByQueryShouldRemoveColumn() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -387,7 +422,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292
-	public void deleteShouldRemoveEntity() {
+	void deleteShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -398,7 +433,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-292
-	public void deleteByIdShouldRemoveEntity() {
+	void deleteByIdShouldRemoveEntity() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -410,7 +445,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-606
-	public void deleteShouldRemoveEntityWithLwt() {
+	void deleteShouldRemoveEntityWithLwt() {
 
 		DeleteOptions lwtOptions = DeleteOptions.builder().withIfExists().build();
 
@@ -421,7 +456,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-606
-	public void deleteByQueryShouldRemoveEntityWithLwt() {
+	void deleteByQueryShouldRemoveEntityWithLwt() {
 
 		DeleteOptions lwtOptions = DeleteOptions.builder().withIfExists().build();
 
@@ -432,8 +467,38 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		assertThat(template.delete(query, User.class)).isTrue();
 	}
 
+	@Test // DATACASS-767
+	void selectByQueryWithKeyspaceShouldRetrieveData() {
+
+		assumeThat(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4)).isTrue();
+
+		QueryOptions queryOptions = QueryOptions.builder().keyspace(CqlIdentifier.fromCql(keyspace)).build();
+
+		User user = new User("heisenberg", "Walter", "White");
+		template.insert(user);
+
+		Query query = Query.query(where("id").is("heisenberg")).queryOptions(queryOptions);
+		assertThat(template.select(query, User.class)).isNotEmpty();
+	}
+
+	@Test // DATACASS-767
+	void selectByQueryWithNonExistingKeyspaceShouldThrowThatKeyspaceDoesNotExists() {
+
+		assumeThat(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4)).isTrue();
+
+		QueryOptions queryOptions = QueryOptions.builder().keyspace(CqlIdentifier.fromCql("non_existing")).build();
+
+		User user = new User("heisenberg", "Walter", "White");
+		template.insert(user);
+
+		Query query = Query.query(where("id").is("heisenberg")).queryOptions(queryOptions);
+		assertThatThrownBy(() -> assertThat(template.select(query, User.class)).isEmpty())
+				.isInstanceOf(CassandraInvalidQueryException.class)
+				.hasMessageContaining("Keyspace 'non_existing' does not exist");
+	}
+
 	@Test // DATACASS-182
-	public void stream() {
+	void stream() {
 
 		User user = new User("heisenberg", "Walter", "White");
 		template.insert(user);
@@ -444,7 +509,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-343
-	public void streamByQuery() {
+	void streamByQuery() {
 
 		User person = new User("heisenberg", "Walter", "White");
 		template.insert(person);
@@ -457,7 +522,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-182
-	public void updateShouldRemoveFields() {
+	void updateShouldRemoveFields() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -473,7 +538,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-182, DATACASS-420
-	public void insertShouldNotRemoveFields() {
+	void insertShouldNotRemoveFields() {
 
 		User user = new User("heisenberg", "Walter", "White");
 
@@ -489,7 +554,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-182
-	public void insertAndUpdateToEmptyCollection() {
+	void insertAndUpdateToEmptyCollection() {
 
 		BookReference bookReference = new BookReference();
 
@@ -509,7 +574,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-206
-	public void shouldUseSpecifiedColumnNamesForSingleEntityModifyingOperations() {
+	void shouldUseSpecifiedColumnNamesForSingleEntityModifyingOperations() {
 
 		UserToken userToken = new UserToken();
 		userToken.setToken(Uuids.startOf(System.currentTimeMillis()));
@@ -534,7 +599,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-56
-	public void shouldPageRequests() {
+	void shouldPageRequests() {
 
 		Set<String> expectedIds = new LinkedHashSet<>();
 
@@ -572,7 +637,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadPrefixedEmbeddedCorrectly() {
+	void shouldSaveAndReadPrefixedEmbeddedCorrectly() {
 
 		WithPrefixedNullableEmbeddedType entity = new WithPrefixedNullableEmbeddedType();
 		entity.id = "id-1";
@@ -588,7 +653,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadEmbeddedCorrectly() {
+	void shouldSaveAndReadEmbeddedCorrectly() {
 
 		WithNullableEmbeddedType entity = new WithNullableEmbeddedType();
 		entity.id = "id-1";
@@ -604,7 +669,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadNullableEmbeddedCorrectly() {
+	void shouldSaveAndReadNullableEmbeddedCorrectly() {
 
 		WithNullableEmbeddedType entity = new WithNullableEmbeddedType();
 		entity.id = "id-1";
@@ -619,7 +684,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadEmptyEmbeddedCorrectly() {
+	void shouldSaveAndReadEmptyEmbeddedCorrectly() {
 
 		WithEmptyEmbeddedType entity = new WithEmptyEmbeddedType();
 		entity.id = "id-1";
@@ -633,7 +698,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadEmbeddedUDTCorrectly() {
+	void shouldSaveAndReadEmbeddedUDTCorrectly() {
 
 		OuterWithNullableEmbeddedType entity = new OuterWithNullableEmbeddedType();
 		entity.id = "id-1";
@@ -651,7 +716,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadPrefixedUdtEmbeddedCorrectly() {
+	void shouldSaveAndReadPrefixedUdtEmbeddedCorrectly() {
 
 		OuterWithPrefixedNullableEmbeddedType entity = new OuterWithPrefixedNullableEmbeddedType();
 		entity.id = "id-1";
@@ -669,7 +734,7 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	}
 
 	@Test // DATACASS-167
-	public void shouldSaveAndReadNullEmbeddedUDTCorrectly() {
+	void shouldSaveAndReadNullEmbeddedUDTCorrectly() {
 
 		OuterWithNullableEmbeddedType entity = new OuterWithNullableEmbeddedType();
 		entity.id = "id-1";
@@ -684,6 +749,39 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 		assertThat(target).isEqualTo(entity);
 	}
 
+	@Test // DATACASS-829
+	void shouldPartiallyUpdateListOfMappedUdt() {
+
+		WithMappedUdtList entity = new WithMappedUdtList();
+		entity.id = "id-1";
+		entity.mappedUdts = Arrays.asList(new MappedUdt("one"), new MappedUdt("two"), new MappedUdt("three"));
+
+		template.insert(entity);
+
+		Update update = Update.empty().set("mappedUdts").atIndex(1).to(new MappedUdt("replacement"));
+
+		template.update(Query.query(where("id").is("id-1")), update, WithMappedUdtList.class);
+
+		WithMappedUdtList updated = template.selectOne(Query.query(where("id").is("id-1")), WithMappedUdtList.class);
+		assertThat(updated.getMappedUdts()).extracting(MappedUdt::getName).containsExactly("one", "replacement", "three");
+	}
+
+	@Data
+	@UserDefinedType
+	static class MappedUdt {
+
+		final String name;
+	}
+
+	@Data
+	@Table
+	static class WithMappedUdtList {
+
+		@Id String id;
+
+		List<MappedUdt> mappedUdts;
+	}
+
 	@Data
 	static class TimeClass {
 
@@ -696,6 +794,11 @@ public class CassandraTemplateIntegrationTests extends AbstractKeyspaceCreatingI
 	static class TypeWithCompositeKey {
 		@PrimaryKey CompositeKey key;
 		String comment;
+	}
+
+	interface WithCompositeKeyProjection {
+
+		CompositeKey getKey();
 	}
 
 	@Data

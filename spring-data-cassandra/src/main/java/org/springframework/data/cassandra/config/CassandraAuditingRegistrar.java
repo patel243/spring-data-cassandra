@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package org.springframework.data.cassandra.config;
 
 import java.lang.annotation.Annotation;
 
-import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
@@ -27,15 +26,9 @@ import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.data.auditing.IsNewAwareAuditingHandler;
 import org.springframework.data.auditing.config.AuditingBeanDefinitionRegistrarSupport;
 import org.springframework.data.auditing.config.AuditingConfiguration;
-import org.springframework.data.cassandra.core.convert.MappingCassandraConverter;
-import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
-import org.springframework.data.cassandra.core.mapping.CassandraPersistentProperty;
 import org.springframework.data.cassandra.core.mapping.event.AuditingEntityCallback;
-import org.springframework.data.cassandra.core.mapping.event.ReactiveAuditingEntityCallback;
 import org.springframework.data.config.ParsingUtils;
-import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
 
 /**
  * {@link ImportBeanDefinitionRegistrar} to enable {@link EnableCassandraAuditing} annotation.
@@ -44,9 +37,6 @@ import org.springframework.util.ClassUtils;
  * @since 2.2
  */
 class CassandraAuditingRegistrar extends AuditingBeanDefinitionRegistrarSupport {
-
-	private static boolean PROJECT_REACTOR_AVAILABLE = ClassUtils.isPresent("reactor.core.publisher.Mono",
-			CassandraAuditingRegistrar.class.getClassLoader());
 
 	/*
 	 * (non-Javadoc)
@@ -90,7 +80,7 @@ class CassandraAuditingRegistrar extends AuditingBeanDefinitionRegistrarSupport 
 
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(IsNewAwareAuditingHandler.class);
 
-		BeanDefinitionBuilder definition = BeanDefinitionBuilder.genericBeanDefinition(CassandraMappingContextLookup.class);
+		BeanDefinitionBuilder definition = BeanDefinitionBuilder.genericBeanDefinition(PersistentEntitiesFactoryBean.class);
 		definition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_CONSTRUCTOR);
 
 		builder.addConstructorArgValue(definition.getBeanDefinition());
@@ -116,67 +106,6 @@ class CassandraAuditingRegistrar extends AuditingBeanDefinitionRegistrarSupport 
 		registerInfrastructureBeanWithId(listenerBeanDefinitionBuilder.getBeanDefinition(),
 				AuditingEntityCallback.class.getName(), registry);
 
-		if (PROJECT_REACTOR_AVAILABLE) {
-			registerReactiveAuditingEntityCallback(registry, auditingHandlerDefinition.getSource());
-		}
 	}
 
-	private void registerReactiveAuditingEntityCallback(BeanDefinitionRegistry registry, Object source) {
-
-		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(ReactiveAuditingEntityCallback.class);
-
-		builder.addConstructorArgValue(ParsingUtils.getObjectFactoryBeanDefinition(getAuditingHandlerBeanName(), registry));
-		builder.getRawBeanDefinition().setSource(source);
-
-		registerInfrastructureBeanWithId(builder.getBeanDefinition(), ReactiveAuditingEntityCallback.class.getName(),
-				registry);
-	}
-
-	/**
-	 * Simple helper to be able to wire the {@link MappingContext} from a
-	 * {@link org.springframework.data.cassandra.core.convert.MappingCassandraConverter} bean available in the application
-	 * context.
-	 */
-	static class CassandraMappingContextLookup
-			implements FactoryBean<MappingContext<? extends CassandraPersistentEntity<?>, CassandraPersistentProperty>> {
-
-		private final MappingCassandraConverter converter;
-
-		/**
-		 * Creates a new {@link CassandraMappingContextLookup} for the given {@link MappingCassandraConverter}.
-		 *
-		 * @param converter must not be {@literal null}.
-		 */
-		public CassandraMappingContextLookup(MappingCassandraConverter converter) {
-			this.converter = converter;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * @see org.springframework.beans.factory.FactoryBean#getObject()
-		 */
-		@Override
-		public MappingContext<? extends CassandraPersistentEntity<?>, CassandraPersistentProperty> getObject()
-				throws Exception {
-			return converter.getMappingContext();
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * @see org.springframework.beans.factory.FactoryBean#getObjectType()
-		 */
-		@Override
-		public Class<?> getObjectType() {
-			return MappingContext.class;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * @see org.springframework.beans.factory.FactoryBean#isSingleton()
-		 */
-		@Override
-		public boolean isSingleton() {
-			return true;
-		}
-	}
 }

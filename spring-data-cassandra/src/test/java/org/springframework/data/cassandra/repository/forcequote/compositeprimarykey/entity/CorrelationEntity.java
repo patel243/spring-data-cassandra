@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class CorrelationEntity {
 			this.ts = ts;
 		}
 
-		public IdentityEntity(String type, String value, String correlatedType, Date ts, String correlatedValue) {
+		private IdentityEntity(String type, String value, String correlatedType, Date ts, String correlatedValue) {
 			this.type = type;
 			this.value = value;
 			this.correlatedType = correlatedType;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.data.cassandra.core.cql
 import com.datastax.oss.driver.api.core.cql.ResultSet
 import com.datastax.oss.driver.api.core.cql.Row
 import com.datastax.oss.driver.api.core.cql.Statement
+import java.util.stream.Stream
 import kotlin.reflect.KClass
 
 /**
@@ -120,3 +121,10 @@ fun CqlOperations.query(cql: String, vararg args: Any, function: (Row) -> Unit):
  */
 fun <T : Any> CqlOperations.query(cql: String, vararg args: Any, function: (Row, Int) -> T): List<T> =
 		query(cql, RowMapper { row, i -> function(row, i) }, *args)
+
+/**
+ * Extension for [queryForStream.query] providing a RowMapper-like function
+ * variant: `query("...", arg1, argN){ row, i -> }`.
+ */
+fun <T : Any> CqlOperations.queryForStream(cql: String, vararg args: Any, function: (Row, Int) -> T): Stream<T> =
+		queryForStream(cql, RowMapper { row, i -> function(row, i) }, *args)

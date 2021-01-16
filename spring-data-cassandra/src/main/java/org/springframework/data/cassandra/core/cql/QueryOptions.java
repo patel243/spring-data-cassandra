@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 the original author or authors.
+ * Copyright 2013-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
 
 /**
@@ -31,6 +33,7 @@ import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
  *
  * @author David Webb
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
 public class QueryOptions {
 
@@ -39,6 +42,8 @@ public class QueryOptions {
 	private final @Nullable ConsistencyLevel consistencyLevel;
 
 	private final ExecutionProfileResolver executionProfileResolver;
+
+	private final @Nullable CqlIdentifier keyspace;
 
 	private final @Nullable Integer pageSize;
 
@@ -49,11 +54,12 @@ public class QueryOptions {
 	private final @Nullable Boolean tracing;
 
 	protected QueryOptions(@Nullable ConsistencyLevel consistencyLevel, ExecutionProfileResolver executionProfileResolver,
-			@Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel, Duration timeout,
-			@Nullable Boolean tracing) {
+			@Nullable CqlIdentifier keyspace, @Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel,
+			Duration timeout, @Nullable Boolean tracing) {
 
 		this.consistencyLevel = consistencyLevel;
 		this.executionProfileResolver = executionProfileResolver;
+		this.keyspace = keyspace;
 		this.pageSize = pageSize;
 		this.serialConsistencyLevel = serialConsistencyLevel;
 		this.timeout = timeout;
@@ -154,6 +160,16 @@ public class QueryOptions {
 		return this.tracing;
 	}
 
+	/**
+	 * @return the keyspace associated with the query. If it is {@literal null}, it means that either keyspace configured
+	 *         on the statement or from the {@link CqlSession} will be used.
+	 * @since 3.1
+	 */
+	@Nullable
+	public CqlIdentifier getKeyspace() {
+		return keyspace;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * @see java.lang.Object#equals(java.lang.Object)
@@ -191,7 +207,11 @@ public class QueryOptions {
 			return false;
 		}
 
-		return ObjectUtils.nullSafeEquals(tracing, options.tracing);
+		if (!ObjectUtils.nullSafeEquals(tracing, options.tracing)) {
+			return false;
+		}
+
+		return ObjectUtils.nullSafeEquals(keyspace, options.keyspace);
 	}
 
 	/*
@@ -206,6 +226,7 @@ public class QueryOptions {
 		result = 31 * result + ObjectUtils.nullSafeHashCode(serialConsistencyLevel);
 		result = 31 * result + ObjectUtils.nullSafeHashCode(timeout);
 		result = 31 * result + ObjectUtils.nullSafeHashCode(tracing);
+		result = 31 * result + ObjectUtils.nullSafeHashCode(keyspace);
 		return result;
 	}
 
@@ -221,6 +242,8 @@ public class QueryOptions {
 
 		protected ExecutionProfileResolver executionProfileResolver = ExecutionProfileResolver.none();
 
+		protected @Nullable CqlIdentifier keyspace;
+
 		protected @Nullable Integer pageSize;
 
 		protected @Nullable ConsistencyLevel serialConsistencyLevel;
@@ -235,6 +258,7 @@ public class QueryOptions {
 
 			this.consistencyLevel = queryOptions.consistencyLevel;
 			this.executionProfileResolver = queryOptions.executionProfileResolver;
+			this.keyspace = queryOptions.keyspace;
 			this.pageSize = queryOptions.pageSize;
 			this.serialConsistencyLevel = queryOptions.serialConsistencyLevel;
 			this.timeout = queryOptions.timeout;
@@ -299,6 +323,23 @@ public class QueryOptions {
 		@Deprecated
 		public QueryOptionsBuilder fetchSize(int fetchSize) {
 			return pageSize(fetchSize);
+		}
+
+		/**
+		 * Sets the {@link CqlIdentifier keyspace} to use. If left unconfigured, then the keyspace set on the statement or
+		 * {@link CqlSession} will be used.
+		 *
+		 * @param keyspace the specific keyspace to use to run a statement, must not be {@literal null}.
+		 * @return {@code this} {@link QueryOptionsBuilder}.
+		 * @since 3.1
+		 */
+		public QueryOptionsBuilder keyspace(CqlIdentifier keyspace) {
+
+			Assert.notNull(keyspace, "Keyspace must not be null");
+
+			this.keyspace = keyspace;
+
+			return this;
 		}
 
 		/**
@@ -436,7 +477,7 @@ public class QueryOptions {
 		 * @return a new {@link QueryOptions} with the configured values
 		 */
 		public QueryOptions build() {
-			return new QueryOptions(this.consistencyLevel, this.executionProfileResolver, this.pageSize,
+			return new QueryOptions(this.consistencyLevel, this.executionProfileResolver, this.keyspace, this.pageSize,
 					this.serialConsistencyLevel, this.timeout, this.tracing);
 		}
 	}

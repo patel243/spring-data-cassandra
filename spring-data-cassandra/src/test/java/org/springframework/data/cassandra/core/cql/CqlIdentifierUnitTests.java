@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.springframework.data.cassandra.core.cql;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.data.cassandra.core.cql.CqlIdentifier.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link CqlIdentifier}.
@@ -26,10 +26,10 @@ import org.junit.Test;
  * @author John McPeek
  * @author Matthew T. Adams
  */
-public class CqlIdentifierUnitTests {
+class CqlIdentifierUnitTests {
 
 	@Test
-	public void testUnquotedIdentifiers() {
+	void testUnquotedIdentifiers() {
 
 		String[] ids = new String[] { "foo", "Foo", "FOO", "a_", "a1" };
 
@@ -41,7 +41,7 @@ public class CqlIdentifierUnitTests {
 	}
 
 	@Test
-	public void testForceQuotedIdentifiers() {
+	void testForceQuotedIdentifiers() {
 
 		String[] ids = new String[] { "foo", "Foo", "FOO", "a_", "a1" };
 
@@ -53,7 +53,7 @@ public class CqlIdentifierUnitTests {
 	}
 
 	@Test
-	public void testReservedWordsEndUpQuoted() {
+	void testReservedWordsEndUpQuoted() {
 
 		for (ReservedKeyword id : ReservedKeyword.values()) {
 			CqlIdentifier cqlId = of(id.name());
@@ -67,7 +67,7 @@ public class CqlIdentifierUnitTests {
 	}
 
 	@Test
-	public void testIllegals() {
+	void testIllegals() {
 		String[] illegals = new String[] { null, "", "a ", "a a", "a\"", "a'", "a''", "\"\"", "''", "-", "a-", "_", "_a" };
 		for (String illegal : illegals) {
 			try {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 the original author or authors.
+ * Copyright 2018-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import static org.assertj.core.api.Assertions.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.CassandraTemplate;
 import org.springframework.data.cassandra.core.query.Query;
@@ -35,12 +35,12 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
  *
  * @author Mark Paluch
  */
-public class CassandraTemplateEventIntegrationTests extends EventListenerIntegrationTestSupport {
+class CassandraTemplateEventIntegrationTests extends EventListenerIntegrationTestSupport {
 
-	CassandraTemplate template;
+	private CassandraTemplate template;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 
 		template = new CassandraTemplate(session);
 		template.setApplicationEventPublisher(getApplicationEventPublisher());
@@ -49,7 +49,7 @@ public class CassandraTemplateEventIntegrationTests extends EventListenerIntegra
 	}
 
 	@Test // DATACASS-106
-	public void streamShouldEmitEvents() {
+	void streamShouldEmitEvents() {
 
 		template.stream("SELECT * FROM users;", User.class).collect(Collectors.toList()); // Just load entire stream.
 
@@ -59,7 +59,7 @@ public class CassandraTemplateEventIntegrationTests extends EventListenerIntegra
 	}
 
 	@Test // DATACASS-106
-	public void sliceShouldEmitEvents() {
+	void sliceShouldEmitEvents() {
 
 		template.slice(Query.empty(), User.class).getSize(); // Force load entire collection.
 

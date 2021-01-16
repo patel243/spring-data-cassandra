@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 public interface KeyspacePopulator {
 
 	/**
-	 * Populate, initialize, or clean up the database using the provided JDBC connection.
+	 * Populate, initialize, or clean up the database using the provided CqlSession connection.
 	 * <p>
 	 * Concrete implementations <em>may</em> throw a {@link RuntimeException} if an error is encountered but are
 	 * <em>strongly encouraged</em> to throw a specific {@link ScriptException} instead. For example, Spring's

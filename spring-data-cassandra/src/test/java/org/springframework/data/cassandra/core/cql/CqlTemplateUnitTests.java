@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,17 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
@@ -39,6 +43,7 @@ import org.springframework.data.cassandra.CassandraInvalidQueryException;
 import org.springframework.lang.Nullable;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.NoNodeAvailableException;
@@ -55,9 +60,11 @@ import com.datastax.oss.driver.api.core.servererrors.InvalidQueryException;
  * Unit tests for {@link CqlTemplate}.
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
-@RunWith(MockitoJUnitRunner.class)
-public class CqlTemplateUnitTests {
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class CqlTemplateUnitTests {
 
 	@Mock CqlSession session;
 	@Mock ResultSet resultSet;
@@ -66,10 +73,10 @@ public class CqlTemplateUnitTests {
 	@Mock BoundStatement boundStatement;
 	@Mock ColumnDefinitions columnDefinitions;
 
-	CqlTemplate template;
+	private CqlTemplate template;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 
 		this.template = new CqlTemplate();
 		this.template.setSession(session);
@@ -80,7 +87,7 @@ public class CqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeCallbackShouldTranslateExceptions() {
+	void executeCallbackShouldTranslateExceptions() {
 
 		try {
 			template.execute((SessionCallback<String>) session -> {
@@ -94,7 +101,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeCqlShouldTranslateExceptions() {
+	void executeCqlShouldTranslateExceptions() {
 
 		when(session.execute(any(Statement.class))).thenThrow(new NoNodeAvailableException());
 
@@ -111,7 +118,7 @@ public class CqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeCqlShouldCallExecution() {
+	void executeCqlShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -122,7 +129,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeCqlWithArgumentsShouldCallExecution() {
+	void executeCqlWithArgumentsShouldCallExecution() {
 
 		doTestStrings(5, DefaultConsistencyLevel.ONE, null, "foo", cqlTemplate -> {
 
@@ -133,7 +140,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForResultSetShouldCallExecution() {
+	void queryForResultSetShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -145,31 +152,31 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetExtractorShouldCallExecution() {
+	void queryWithResultSetExtractorShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
 			List<String> rows = cqlTemplate.query("SELECT * from USERS", (row, index) -> row.getString(0));
 
-			assertThat(rows).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(rows).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).execute(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetExtractorWithArgumentsShouldCallExecution() {
+	void queryWithResultSetExtractorWithArgumentsShouldCallExecution() {
 
 		doTestStrings(5, ConsistencyLevel.ONE, ConsistencyLevel.EACH_QUORUM, "foo", cqlTemplate -> {
 
 			List<String> rows = cqlTemplate.query("SELECT * from USERS", (row, index) -> row.getString(0));
 
-			assertThat(rows).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(rows).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).execute(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryCqlShouldTranslateExceptions() {
+	void queryCqlShouldTranslateExceptions() {
 
 		when(session.execute(any(Statement.class))).thenThrow(new NoNodeAvailableException());
 
@@ -182,7 +189,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldBeEmpty() {
+	void queryForObjectCqlShouldBeEmpty() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.emptyIterator());
@@ -196,7 +203,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldReturnRecord() {
+	void queryForObjectCqlShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -206,7 +213,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldReturnNullValue() {
+	void queryForObjectCqlShouldReturnNullValue() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -216,7 +223,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlShouldFailReturningManyRecords() {
+	void queryForObjectCqlShouldFailReturningManyRecords() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -230,7 +237,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectCqlWithTypeShouldReturnRecord() {
+	void queryForObjectCqlWithTypeShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -244,7 +251,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListCqlWithTypeShouldReturnRecord() {
+	void queryForListCqlWithTypeShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -258,7 +265,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeCqlShouldReturnWasApplied() {
+	void executeCqlShouldReturnWasApplied() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.wasApplied()).thenReturn(true);
@@ -273,7 +280,7 @@ public class CqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void executeStatementShouldCallExecution() {
+	void executeStatementShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -284,7 +291,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeStatementWithArgumentsShouldCallExecution() {
+	void executeStatementWithArgumentsShouldCallExecution() {
 
 		doTestStrings(5, ConsistencyLevel.ONE, null, "foo", cqlTemplate -> {
 
@@ -295,7 +302,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForResultStatementSetShouldCallExecution() {
+	void queryForResultStatementSetShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -307,33 +314,46 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetStatementExtractorShouldCallExecution() {
+	void queryWithResultSetStatementExtractorShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
 			List<String> result = cqlTemplate.query(SimpleStatement.newInstance("SELECT * from USERS"),
 					(row, index) -> row.getString(0));
 
-			assertThat(result).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(result).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).execute(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryWithResultSetStatementExtractorWithArgumentsShouldCallExecution() {
+	void queryWithResultSetStatementExtractorWithArgumentsShouldCallExecution() {
 
 		doTestStrings(5, ConsistencyLevel.ONE, null, "foo", cqlTemplate -> {
 
 			List<String> result = cqlTemplate.query(SimpleStatement.newInstance("SELECT * from USERS"),
 					(row, index) -> row.getString(0));
 
-			assertThat(result).hasSize(3).contains("Walter", "Hank", " Jesse");
+			assertThat(result).hasSize(3).contains("Walter", "Hank", "Jesse");
+			verify(session).execute(any(Statement.class));
+		});
+	}
+
+	@Test // DATACASS-809
+	public void queryForStreamWithResultSetStatementExtractorWithArgumentsShouldCallExecution() {
+
+		doTestStrings(5, ConsistencyLevel.ONE, null, "foo", cqlTemplate -> {
+
+			Stream<String> result = cqlTemplate.queryForStream(SimpleStatement.newInstance("SELECT * from USERS"),
+					(row, index) -> row.getString(0));
+
+			assertThat(result.collect(Collectors.toList())).hasSize(3).contains("Walter", "Hank", "Jesse");
 			verify(session).execute(any(Statement.class));
 		});
 	}
 
 	@Test // DATACASS-292
-	public void queryStatementShouldTranslateExceptions() {
+	void queryStatementShouldTranslateExceptions() {
 
 		when(session.execute(any(Statement.class))).thenThrow(new NoNodeAvailableException());
 
@@ -347,7 +367,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldBeEmpty() {
+	void queryForObjectStatementShouldBeEmpty() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.emptyIterator());
@@ -362,7 +382,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnRecord() {
+	void queryForObjectStatementShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -372,7 +392,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnNullValue() {
+	void queryForObjectStatementShouldReturnNullValue() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -382,7 +402,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldFailReturningManyRecords() {
+	void queryForObjectStatementShouldFailReturningManyRecords() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -397,7 +417,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementWithTypeShouldReturnRecord() {
+	void queryForObjectStatementWithTypeShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -411,7 +431,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListStatementWithTypeShouldReturnRecord() {
+	void queryForListStatementWithTypeShouldReturnRecord() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -425,7 +445,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executeStatementShouldReturnWasApplied() {
+	void executeStatementShouldReturnWasApplied() {
 
 		when(session.execute(any(Statement.class))).thenReturn(resultSet);
 		when(resultSet.wasApplied()).thenReturn(true);
@@ -440,7 +460,7 @@ public class CqlTemplateUnitTests {
 	// -------------------------------------------------------------------------
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementWithCallbackShouldCallExecution() {
+	void queryPreparedStatementWithCallbackShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -454,8 +474,25 @@ public class CqlTemplateUnitTests {
 		});
 	}
 
+	@Test // DATACASS-767
+	void executePreparedStatementShouldApplyKeyspace() {
+
+		when(preparedStatement.bind("A")).thenReturn(boundStatement);
+		when(boundStatement.getKeyspace()).thenReturn(CqlIdentifier.fromCql("ks1"));
+
+		doTestStrings(null, null, null, null, CqlIdentifier.fromCql("ks1"), cqlTemplate -> {
+			cqlTemplate.execute("SELECT * from USERS", (session, ps) -> session.execute(ps.bind("A")));
+		});
+
+		ArgumentCaptor<SimpleStatement> captor = ArgumentCaptor.forClass(SimpleStatement.class);
+		verify(session).prepare(captor.capture());
+
+		SimpleStatement statement = captor.getValue();
+		assertThat(statement.getKeyspace()).isEqualTo(CqlIdentifier.fromCql("ks1"));
+	}
+
 	@Test // DATACASS-292
-	public void executePreparedStatementWithCallbackShouldCallExecution() {
+	void executePreparedStatementWithCallbackShouldCallExecution() {
 
 		doTestStrings(cqlTemplate -> {
 
@@ -469,7 +506,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executePreparedStatementCreatorShouldTranslateStatementCreationExceptions() {
+	void executePreparedStatementCreatorShouldTranslateStatementCreationExceptions() {
 
 		try {
 			template.execute(session -> {
@@ -483,7 +520,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void executePreparedStatementCreatorShouldTranslateStatementCallbackExceptions() {
+	void executePreparedStatementCreatorShouldTranslateStatementCallbackExceptions() {
 
 		try {
 			template.execute(session -> preparedStatement, (session, ps) -> {
@@ -497,7 +534,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorShouldReturnResult() {
+	void queryPreparedStatementCreatorShouldReturnResult() {
 
 		when(preparedStatement.bind()).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
@@ -510,7 +547,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldReturnResult() {
+	void queryPreparedStatementCreatorAndBinderShouldReturnResult() {
 
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenAnswer(it -> Collections.singleton(row).iterator());
@@ -526,7 +563,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslatePrepareStatementExceptions() {
+	void queryPreparedStatementCreatorAndBinderShouldTranslatePrepareStatementExceptions() {
 
 		try {
 			template.query(session -> {
@@ -543,7 +580,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslateBindExceptions() {
+	void queryPreparedStatementCreatorAndBinderShouldTranslateBindExceptions() {
 
 		try {
 			template.query(session -> preparedStatement, ps -> {
@@ -557,7 +594,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderShouldTranslateExecutionExceptions() {
+	void queryPreparedStatementCreatorAndBinderShouldTranslateExecutionExceptions() {
 
 		when(session.execute(boundStatement)).thenThrow(new NoNodeAvailableException());
 
@@ -574,7 +611,7 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorAndBinderAndMapperShouldReturnResult() {
+	void queryPreparedStatementCreatorAndBinderAndMapperShouldReturnResult() {
 
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -588,10 +625,25 @@ public class CqlTemplateUnitTests {
 		verify(preparedStatement).bind("a", "b");
 	}
 
-	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldBeEmpty() {
+	@Test // DATACASS-809
+	public void queryForStreanPreparedStatementCreatorAndBinderAndMapperShouldReturnResult() {
 
-		when(session.prepare("SELECT * FROM user WHERE username = ?")).thenReturn(preparedStatement);
+		when(session.execute(boundStatement)).thenReturn(resultSet);
+		when(resultSet.spliterator()).thenReturn(Collections.singleton(row).spliterator());
+
+		Stream<Row> rows = template.queryForStream(session -> preparedStatement, ps -> {
+			ps.bind("a", "b");
+			return boundStatement;
+		}, (row, rowNum) -> row);
+
+		assertThat(rows).hasSize(1).contains(row);
+		verify(preparedStatement).bind("a", "b");
+	}
+
+	@Test // DATACASS-292
+	void queryForObjectPreparedStatementShouldBeEmpty() {
+
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.emptyIterator());
@@ -606,9 +658,9 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldReturnRecord() {
+	void queryForObjectPreparedStatementShouldReturnRecord() {
 
-		when(session.prepare("SELECT * FROM user WHERE username = ?")).thenReturn(preparedStatement);
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -618,9 +670,9 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementShouldFailReturningManyRecords() {
+	void queryForObjectPreparedStatementShouldFailReturningManyRecords() {
 
-		when(session.prepare("SELECT * FROM user WHERE username = ?")).thenReturn(preparedStatement);
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -635,9 +687,9 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectPreparedStatementWithTypeShouldReturnRecord() {
+	void queryForObjectPreparedStatementWithTypeShouldReturnRecord() {
 
-		when(session.prepare("SELECT * FROM user WHERE username = ?")).thenReturn(preparedStatement);
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Collections.singleton(row).iterator());
@@ -651,9 +703,9 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void queryForListPreparedStatementWithTypeShouldReturnRecord() {
+	void queryForListPreparedStatementWithTypeShouldReturnRecord() {
 
-		when(session.prepare("SELECT * FROM user WHERE username = ?")).thenReturn(preparedStatement);
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.iterator()).thenReturn(Arrays.asList(row, row).iterator());
@@ -667,9 +719,9 @@ public class CqlTemplateUnitTests {
 	}
 
 	@Test // DATACASS-292
-	public void updatePreparedStatementShouldReturnApplied() {
+	void updatePreparedStatementShouldReturnApplied() {
 
-		when(session.prepare("UPDATE user SET username = ?")).thenReturn(preparedStatement);
+		when(session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 		when(preparedStatement.bind("Walter")).thenReturn(boundStatement);
 		when(session.execute(boundStatement)).thenReturn(resultSet);
 		when(resultSet.wasApplied()).thenReturn(true);
@@ -679,22 +731,41 @@ public class CqlTemplateUnitTests {
 		assertThat(applied).isTrue();
 	}
 
+	@Test // DATACASS-767
+	void executeCqlWithKeyspaceShouldCallExecution() {
+
+		doTestStrings(5, DefaultConsistencyLevel.ONE, null, "foo", CqlIdentifier.fromCql("some_keyspace"), cqlTemplate -> {
+
+			cqlTemplate.execute("SELECT * from USERS");
+
+			verify(session).execute(any(Statement.class));
+		});
+	}
+
 	private void doTestStrings(Consumer<CqlTemplate> cqlTemplateConsumer) {
-		doTestStrings(null, null, null, null, cqlTemplateConsumer);
+		doTestStrings(null, null, null, null, null, cqlTemplateConsumer);
 	}
 
 	private void doTestStrings(@Nullable Integer fetchSize, @Nullable ConsistencyLevel consistencyLevel,
 			@Nullable ConsistencyLevel serialConsistencyLevel, @Nullable String executionProfile,
 			Consumer<CqlTemplate> cqlTemplateConsumer) {
+		doTestStrings(fetchSize, consistencyLevel, serialConsistencyLevel, executionProfile, null, cqlTemplateConsumer);
+	}
 
-		String[] results = { "Walter", "Hank", " Jesse" };
+	private void doTestStrings(@Nullable Integer fetchSize, @Nullable ConsistencyLevel consistencyLevel,
+			@Nullable ConsistencyLevel serialConsistencyLevel, @Nullable String executionProfile,
+			@Nullable CqlIdentifier keyspace, Consumer<CqlTemplate> cqlTemplateConsumer) {
 
+		String[] results = { "Walter", "Hank", "Jesse" };
+
+		List<Row> rows = Arrays.asList(row, row, row);
 		when(this.session.execute((Statement) any())).thenReturn(resultSet);
-		when(this.resultSet.iterator()).thenReturn(Arrays.asList(row, row, row).iterator());
-		when(this.resultSet.spliterator()).thenCallRealMethod();
+		when(this.resultSet.iterator()).thenReturn(rows.iterator());
+		when(this.resultSet.spliterator()).thenReturn(rows.spliterator());
 
 		when(this.row.getString(0)).thenReturn(results[0], results[1], results[2]);
 		when(this.session.prepare(anyString())).thenReturn(preparedStatement);
+		when(this.session.prepare(any(SimpleStatement.class))).thenReturn(preparedStatement);
 
 		CqlTemplate template = new CqlTemplate();
 		template.setSession(this.session);
@@ -713,6 +784,10 @@ public class CqlTemplateUnitTests {
 
 		if (executionProfile != null) {
 			template.setExecutionProfile(executionProfile);
+		}
+
+		if (keyspace != null) {
+			template.setKeyspace(keyspace);
 		}
 
 		cqlTemplateConsumer.accept(template);
@@ -736,6 +811,9 @@ public class CqlTemplateUnitTests {
 
 		if (executionProfile != null) {
 			assertThat(statement.getExecutionProfileName()).isEqualTo(executionProfile);
+		}
+		if (keyspace != null) {
+			assertThat(statement.getKeyspace()).isEqualTo(keyspace);
 		}
 	}
 }

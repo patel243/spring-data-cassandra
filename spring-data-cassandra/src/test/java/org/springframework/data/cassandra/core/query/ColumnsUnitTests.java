@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package org.springframework.data.cassandra.core.query;
 
 import static org.assertj.core.api.Assertions.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 
@@ -26,10 +26,10 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  *
  * @author Mark Paluch
  */
-public class ColumnsUnitTests {
+class ColumnsUnitTests {
 
 	@Test // DATACASS-343
-	public void shouldCreateEmpty() {
+	void shouldCreateEmpty() {
 
 		Columns columns = Columns.empty();
 
@@ -37,7 +37,7 @@ public class ColumnsUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldIncludeColumn() {
+	void shouldIncludeColumn() {
 
 		Columns columns = Columns.empty().include("foo").include("bar").ttl("baz");
 
@@ -45,7 +45,7 @@ public class ColumnsUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldCreateFromColumns() {
+	void shouldCreateFromColumns() {
 
 		Columns columns = Columns.from("asc", "bar");
 
@@ -53,7 +53,7 @@ public class ColumnsUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldCreateFromCqlIdentifiers() {
+	void shouldCreateFromCqlIdentifiers() {
 
 		Columns columns = Columns.from(CqlIdentifier.fromInternal("Foo"), CqlIdentifier.fromInternal("bar"));
 
@@ -61,7 +61,7 @@ public class ColumnsUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldBeEquals() {
+	void shouldBeEquals() {
 
 		Columns columns = Columns.empty().include("foo").include("bar");
 		Columns other = Columns.from("foo", "bar");

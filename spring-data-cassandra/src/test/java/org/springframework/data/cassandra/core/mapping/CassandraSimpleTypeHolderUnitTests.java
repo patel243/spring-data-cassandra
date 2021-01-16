@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.EnumSet;
 import java.util.UUID;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.cassandra.core.mapping.CassandraType.Name;
 
@@ -32,10 +32,10 @@ import com.datastax.oss.driver.api.core.type.DataTypes;
  *
  * @author Mark Paluch
  */
-public class CassandraSimpleTypeHolderUnitTests {
+class CassandraSimpleTypeHolderUnitTests {
 
 	@Test // DATACASS-488
-	public void shouldResolveTypeNamesForAllPrimaryTypes() {
+	void shouldResolveTypeNamesForAllPrimaryTypes() {
 
 		EnumSet<Name> excluded = EnumSet.of(Name.MAP, Name.SET, Name.LIST, Name.UDT, Name.TUPLE);
 
@@ -50,7 +50,7 @@ public class CassandraSimpleTypeHolderUnitTests {
 	}
 
 	@Test // DATACASS-128
-	public void mapStringToVarchar() {
+	void mapStringToVarchar() {
 
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.VARCHAR)).isSameAs(DataTypes.TEXT);
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.TEXT)).isSameAs(DataTypes.TEXT);
@@ -60,7 +60,7 @@ public class CassandraSimpleTypeHolderUnitTests {
 	}
 
 	@Test // DATACASS-128
-	public void mapLongToBigint() {
+	void mapLongToBigint() {
 
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.BIGINT)).isSameAs(DataTypes.BIGINT);
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.COUNTER)).isSameAs(DataTypes.COUNTER);
@@ -69,7 +69,7 @@ public class CassandraSimpleTypeHolderUnitTests {
 	}
 
 	@Test // DATACASS-128
-	public void mapByteBufferToBlob() {
+	void mapByteBufferToBlob() {
 
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.BLOB)).isSameAs(DataTypes.BLOB);
 
@@ -77,7 +77,7 @@ public class CassandraSimpleTypeHolderUnitTests {
 	}
 
 	@Test // DATACASS-128
-	public void mapUuidToUuid() {
+	void mapUuidToUuid() {
 
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.UUID)).isSameAs(DataTypes.UUID);
 		assertThat(CassandraSimpleTypeHolder.getDataTypeFor(Name.TIMEUUID)).isSameAs(DataTypes.TIMEUUID);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ class EmbeddedCassandraServerHelper {
 	private static Logger log = LoggerFactory.getLogger(EmbeddedCassandraServerHelper.class);
 
 	public static final long DEFAULT_STARTUP_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(20);
-	public static final String DEFAULT_TMP_DIR = "target/embeddedCassandra";
+	private static final String DEFAULT_TMP_DIR = "target/embeddedCassandra";
 
 	private static final AtomicReference<Object> sync = new AtomicReference<>();
 	private static final AtomicReference<CassandraDaemon> cassandraRef = new AtomicReference<>();
@@ -111,7 +111,7 @@ class EmbeddedCassandraServerHelper {
 	 * @param timeout
 	 * @throws Exception
 	 */
-	public static void startEmbeddedCassandra(String yamlResource, String tmpDir, long timeout) throws Exception {
+	private static void startEmbeddedCassandra(String yamlResource, String tmpDir, long timeout) throws Exception {
 
 		if (cassandraRef.get() != null) {
 			/* Nothing to do; Cassandra is already started */

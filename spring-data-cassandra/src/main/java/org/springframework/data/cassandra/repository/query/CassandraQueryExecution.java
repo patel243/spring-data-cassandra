@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package org.springframework.data.cassandra.repository.query;
 
-import java.util.Iterator;
 import java.util.List;
 
 import org.springframework.core.convert.converter.Converter;
@@ -34,7 +33,6 @@ import org.springframework.data.repository.query.ReturnedType;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.Statement;
 
@@ -193,25 +191,22 @@ interface CassandraQueryExecution {
 		@Override
 		public Object execute(Statement<?> statement, Class<?> type) {
 
-			ResultSet resultSet = this.operations.getCqlOperations().queryForResultSet(statement);
+			List<Row> resultSet = this.operations.select(statement, Row.class);
 
-			Iterator<Row> iterator = resultSet.iterator();
-
-			if (iterator.hasNext()) {
-
-				Row row = iterator.next();
-
-				if (!iterator.hasNext() && ProjectionUtil.qualifiesAsCountProjection(row)) {
-
-					Object object = row.getObject(0);
-
-					return ((Number) object).longValue() > 0;
-				}
-
-				return true;
+			if (resultSet.isEmpty()) {
+				return false;
 			}
 
-			return false;
+			Row row = resultSet.get(0);
+
+			if (resultSet.size() == 1 && ProjectionUtil.qualifiesAsCountProjection(row)) {
+
+				Object object = row.getObject(0);
+
+				return ((Number) object).longValue() > 0;
+			}
+
+			return true;
 		}
 	}
 
@@ -233,7 +228,7 @@ interface CassandraQueryExecution {
 		 */
 		@Override
 		public Object execute(Statement<?> statement, Class<?> type) {
-			return operations.getCqlOperations().queryForResultSet(statement);
+			return operations.execute(statement);
 		}
 	}
 

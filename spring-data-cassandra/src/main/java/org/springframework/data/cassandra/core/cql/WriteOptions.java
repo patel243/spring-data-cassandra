@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 the original author or authors.
+ * Copyright 2013-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
-
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
+
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 
 /**
  * Cassandra Write Options are an extension to {@link QueryOptions} for write operations. {@link WriteOptions} allow
@@ -32,6 +33,7 @@ import org.springframework.util.ObjectUtils;
  * @author David Webb
  * @author Mark Paluch
  * @author Lukasz Antoniak
+ * @author Tomasz Lelek
  * @see QueryOptions
  */
 public class WriteOptions extends QueryOptions {
@@ -39,13 +41,15 @@ public class WriteOptions extends QueryOptions {
 	private static final WriteOptions EMPTY = new WriteOptionsBuilder().build();
 
 	private final Duration ttl;
+
 	private final @Nullable Long timestamp;
 
 	protected WriteOptions(@Nullable ConsistencyLevel consistencyLevel, ExecutionProfileResolver executionProfileResolver,
-			@Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel, Duration timeout, Duration ttl,
+			@Nullable CqlIdentifier keyspace, @Nullable Integer pageSize, @Nullable ConsistencyLevel serialConsistencyLevel,
+			Duration timeout, Duration ttl,
 			@Nullable Long timestamp, @Nullable Boolean tracing) {
 
-		super(consistencyLevel, executionProfileResolver, pageSize, serialConsistencyLevel, timeout, tracing);
+		super(consistencyLevel, executionProfileResolver, keyspace, pageSize, serialConsistencyLevel, timeout, tracing);
 
 		this.ttl = ttl;
 		this.timestamp = timestamp;
@@ -148,6 +152,7 @@ public class WriteOptions extends QueryOptions {
 	public static class WriteOptionsBuilder extends QueryOptionsBuilder {
 
 		protected Duration ttl = Duration.ofMillis(-1);
+
 		protected Long timestamp = null;
 
 		protected WriteOptionsBuilder() {}
@@ -196,6 +201,16 @@ public class WriteOptions extends QueryOptions {
 		public WriteOptionsBuilder fetchSize(int pageSize) {
 
 			super.fetchSize(pageSize);
+			return this;
+		}
+
+		/* (non-Javadoc)
+		 * @see org.springframework.data.cassandra.core.cql.QueryOptions.QueryOptionsBuilder#keyspace()
+		 */
+		@Override
+		public WriteOptionsBuilder keyspace(CqlIdentifier keyspace) {
+
+			super.keyspace(keyspace);
 			return this;
 		}
 
@@ -341,7 +356,7 @@ public class WriteOptions extends QueryOptions {
 		 * @return a new {@link WriteOptions} with the configured values
 		 */
 		public WriteOptions build() {
-			return new WriteOptions(this.consistencyLevel, this.executionProfileResolver, this.pageSize,
+			return new WriteOptions(this.consistencyLevel, this.executionProfileResolver, this.keyspace, this.pageSize,
 					this.serialConsistencyLevel, this.timeout, this.ttl, this.timestamp, this.tracing);
 		}
 	}

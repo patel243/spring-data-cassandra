@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 the original author or authors.
+ * Copyright 2013-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.springframework.data.repository.query.QueryLookupStrategy;
 import org.springframework.data.repository.query.QueryLookupStrategy.Key;
 import org.springframework.data.repository.query.QueryMethodEvaluationContextProvider;
 import org.springframework.data.repository.query.RepositoryQuery;
+import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -112,13 +113,15 @@ public class CassandraRepositoryFactory extends RepositoryFactorySupport {
 		return Optional.of(new CassandraQueryLookupStrategy(operations, evaluationContextProvider, mappingContext));
 	}
 
-	private class CassandraQueryLookupStrategy implements QueryLookupStrategy {
+	private static class CassandraQueryLookupStrategy implements QueryLookupStrategy {
 
 		private final QueryMethodEvaluationContextProvider evaluationContextProvider;
 
 		private final MappingContext<? extends CassandraPersistentEntity<?>, CassandraPersistentProperty> mappingContext;
 
 		private final CassandraOperations operations;
+
+		private final ExpressionParser expressionParser = new CachingExpressionParser(EXPRESSION_PARSER);
 
 		CassandraQueryLookupStrategy(CassandraOperations operations,
 				QueryMethodEvaluationContextProvider evaluationContextProvider,
@@ -141,13 +144,14 @@ public class CassandraRepositoryFactory extends RepositoryFactorySupport {
 
 			if (namedQueries.hasQuery(namedQueryName)) {
 				String namedQuery = namedQueries.getQuery(namedQueryName);
-				return new StringBasedCassandraQuery(namedQuery, queryMethod, operations, EXPRESSION_PARSER,
+				return new StringBasedCassandraQuery(namedQuery, queryMethod, operations, expressionParser,
 						evaluationContextProvider);
 			} else if (queryMethod.hasAnnotatedQuery()) {
-				return new StringBasedCassandraQuery(queryMethod, operations, EXPRESSION_PARSER, evaluationContextProvider);
+				return new StringBasedCassandraQuery(queryMethod, operations, expressionParser, evaluationContextProvider);
 			} else {
 				return new PartTreeCassandraQuery(queryMethod, operations);
 			}
 		}
 	}
 }
+

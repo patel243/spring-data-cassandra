@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 the original author or authors.
+ * Copyright 2020-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import org.springframework.data.cassandra.core.mapping.event.AbstractCassandraEv
 import org.springframework.data.cassandra.core.mapping.event.BeforeSaveEvent;
 
 // tag::class[]
-public class BeforeSaveListener extends AbstractCassandraEventListener<Person> {
+class BeforeSaveListener extends AbstractCassandraEventListener<Person> {
 	@Override
 	public void onBeforeSave(BeforeSaveEvent<Person> event) {
 		// … change values, delete them, whatever …

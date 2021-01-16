@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,45 +16,61 @@
 package org.springframework.data.cassandra.core.cql;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.Assume.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTest;
+import org.springframework.data.cassandra.CassandraInvalidQueryException;
+import org.springframework.data.cassandra.support.CassandraVersion;
+import org.springframework.data.cassandra.test.util.AbstractKeyspaceCreatingIntegrationTests;
+import org.springframework.data.util.Version;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.data.UdtValue;
 
 /**
  * Integration tests for {@link CqlTemplate}.
  *
  * @author Mark Paluch
+ * @author Tomasz Lelek
  */
-public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTest {
+class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegrationTests {
 
-	static final AtomicBoolean initialized = new AtomicBoolean();
-	CqlTemplate template;
+	private static final Version CASSANDRA_4 = Version.parse("4.0");
+	private static final AtomicBoolean initialized = new AtomicBoolean();
+	private CqlTemplate template;
+	private Version cassandraVersion;
 
-	@Before
-	public void before() {
+	@BeforeEach
+	void before() {
 
 		if (initialized.compareAndSet(false, true)) {
+			session.execute("CREATE TYPE IF NOT EXISTS cql_template_user (testname text, happy boolean);");
+			session
+					.execute("CREATE TABLE IF NOT EXISTS cql_template_tests (id text PRIMARY KEY, thetest cql_template_user);");
 			session.execute("CREATE TABLE IF NOT EXISTS user (id text PRIMARY KEY, username text);");
 		}
 
 		session.execute("TRUNCATE user;");
+		session.execute("TRUNCATE cql_template_tests;");
 		session.execute("INSERT INTO user (id, username) VALUES ('WHITE', 'Walter');");
+		session.execute(
+				"INSERT INTO cql_template_tests (id, thetest) VALUES ('shouldApplyBeanPropertyRowMapper', {testname: 'shouldApplyBeanPropertyRowMapper', happy: true});");
 
 		template = new CqlTemplate();
 		template.setSession(getSession());
+		cassandraVersion = CassandraVersion.get(session);
 	}
 
 	@Test // DATACASS-292
-	public void executeShouldRemoveRecords() {
+	void executeShouldRemoveRecords() {
 
 		template.execute("DELETE FROM user WHERE id = 'WHITE'");
 
@@ -62,7 +78,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryShouldInvokeCallback() {
+	void queryShouldInvokeCallback() {
 
 		List<String> result = new ArrayList<>();
 		template.query("SELECT id FROM user;", row -> {
@@ -73,7 +89,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectShouldReturnFirstColumn() {
+	void queryForObjectShouldReturnFirstColumn() {
 
 		String id = template.queryForObject("SELECT id FROM user;", String.class);
 
@@ -81,7 +97,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectShouldReturnMap() {
+	void queryForObjectShouldReturnMap() {
 
 		Map<String, Object> map = template.queryForMap("SELECT * FROM user;");
 
@@ -89,7 +105,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void executeStatementShouldRemoveRecords() {
+	void executeStatementShouldRemoveRecords() {
 
 		template.execute(SimpleStatement.newInstance("DELETE FROM user WHERE id = 'WHITE'"));
 
@@ -97,7 +113,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryStatementShouldInvokeCallback() {
+	void queryStatementShouldInvokeCallback() {
 
 		List<String> result = new ArrayList<>();
 		template.query(SimpleStatement.newInstance("SELECT id FROM user"), row -> {
@@ -108,7 +124,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnFirstColumn() {
+	void queryForObjectStatementShouldReturnFirstColumn() {
 
 		String id = template.queryForObject(SimpleStatement.newInstance("SELECT id FROM user"), String.class);
 
@@ -116,7 +132,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectStatementShouldReturnMap() {
+	void queryForObjectStatementShouldReturnMap() {
 
 		Map<String, Object> map = template.queryForMap(SimpleStatement.newInstance("SELECT * FROM user"));
 
@@ -124,7 +140,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void executeWithArgsShouldRemoveRecords() {
+	void executeWithArgsShouldRemoveRecords() {
 
 		template.execute("DELETE FROM user WHERE id = ?", "WHITE");
 
@@ -132,7 +148,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementShouldInvokeCallback() {
+	void queryPreparedStatementShouldInvokeCallback() {
 
 		List<String> result = new ArrayList<>();
 		template.query("SELECT id FROM user WHERE id = ?;", row -> {
@@ -143,7 +159,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryPreparedStatementCreatorShouldInvokeCallback() {
+	void queryPreparedStatementCreatorShouldInvokeCallback() {
 
 		List<String> result = new ArrayList<>();
 		template.query(session -> session.prepare("SELECT id FROM user WHERE id = ?;"), ps -> ps.bind("WHITE"), row -> {
@@ -154,7 +170,7 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectWithArgsShouldReturnFirstColumn() {
+	void queryForObjectWithArgsShouldReturnFirstColumn() {
 
 		String id = template.queryForObject("SELECT id FROM user WHERE id = ?;", String.class, "WHITE");
 
@@ -162,10 +178,65 @@ public class CqlTemplateIntegrationTests extends AbstractKeyspaceCreatingIntegra
 	}
 
 	@Test // DATACASS-292
-	public void queryForObjectWithArgsShouldReturnMap() {
+	void queryForObjectWithArgsShouldReturnMap() {
 
 		Map<String, Object> map = template.queryForMap("SELECT * FROM user WHERE id = ?;", "WHITE");
 
 		assertThat(map).containsEntry("id", "WHITE").containsEntry("username", "Walter");
+	}
+
+	@Test // DATACASS-767
+	void selectByQueryWithKeyspaceShouldRetrieveData() {
+		assumeTrue(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4));
+
+		template.setKeyspace(CqlIdentifier.fromCql(keyspace));
+
+		String id = template.queryForObject("SELECT id FROM user;", String.class);
+
+		assertThat(id).isEqualTo("WHITE");
+	}
+
+	@Test // DATACASS-767
+	void selectByQueryWithNonExistingKeyspaceShouldThrowThatKeyspaceDoesNotExists() {
+		assumeTrue(cassandraVersion.isGreaterThanOrEqualTo(CASSANDRA_4));
+
+		template.setKeyspace(CqlIdentifier.fromCql("non_existing"));
+
+		assertThatThrownBy(() -> template.queryForObject("SELECT id FROM user;", String.class))
+				.isInstanceOf(CassandraInvalidQueryException.class)
+				.hasMessageContaining("Keyspace 'non_existing' does not exist");
+	}
+
+	@Test // DATACASS-810
+	void shouldApplyBeanPropertyRowMapper() {
+
+		CqlTemplateTest result = template.queryForObject("SELECT * FROM cql_template_tests",
+				new BeanPropertyRowMapper<>(CqlTemplateTest.class));
+
+		assertThat(result.getId()).isEqualTo("shouldApplyBeanPropertyRowMapper");
+		assertThat(result.getThetest().getFormattedContents()).contains("testname:'shouldApplyBeanPropertyRowMapper'")
+				.contains("happy:true");
+	}
+
+	static class CqlTemplateTest {
+
+		String id;
+		UdtValue thetest;
+
+		public String getId() {
+			return id;
+		}
+
+		public void setId(String id) {
+			this.id = id;
+		}
+
+		public UdtValue getThetest() {
+			return thetest;
+		}
+
+		public void setThetest(UdtValue thetest) {
+			this.thetest = thetest;
+		}
 	}
 }

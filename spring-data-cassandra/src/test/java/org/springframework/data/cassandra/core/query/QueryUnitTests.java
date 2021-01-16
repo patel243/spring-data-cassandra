@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import static org.springframework.data.domain.Sort.Order.*;
 
 import java.nio.ByteBuffer;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -31,10 +31,10 @@ import org.springframework.data.domain.Sort.Direction;
  *
  * @author Mark Paluch
  */
-public class QueryUnitTests {
+class QueryUnitTests {
 
 	@Test // DATACASS-343
-	public void shouldCreateFromChainedCriteria() {
+	void shouldCreateFromChainedCriteria() {
 
 		Query query = Query.query(Criteria.where("userId").is("foo")).and(Criteria.where("userComment").is("bar"));
 
@@ -44,7 +44,7 @@ public class QueryUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldRepresentQueryToString() {
+	void shouldRepresentQueryToString() {
 
 		Query query = Query.query(Criteria.where("userId").is("foo")).and(Criteria.where("userComment").is("bar"))
 				.sort(Sort.by("foo", "bar")) //
@@ -56,7 +56,7 @@ public class QueryUnitTests {
 	}
 
 	@Test // DATACASS-343
-	public void shouldConfigureQueryObject() {
+	void shouldConfigureQueryObject() {
 
 		Query query = Query.query(Criteria.where("foo").is("bar"));
 		Sort sort = Sort.by("a", "b");
@@ -72,7 +72,7 @@ public class QueryUnitTests {
 	}
 
 	@Test // DATACASS-56
-	public void shouldApplyPageRequests() {
+	void shouldApplyPageRequests() {
 
 		ByteBuffer pagingState = ByteBuffer.allocate(0);
 

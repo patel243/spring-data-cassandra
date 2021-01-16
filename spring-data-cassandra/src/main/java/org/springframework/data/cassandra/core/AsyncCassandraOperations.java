@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.springframework.data.cassandra.core.query.Update;
 import org.springframework.data.domain.Slice;
 import org.springframework.util.concurrent.ListenableFuture;
 
+import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.Statement;
 
 /**
@@ -101,6 +102,17 @@ public interface AsyncCassandraOperations {
 	// -------------------------------------------------------------------------
 	// Methods dealing with com.datastax.oss.driver.api.core.cql.Statement
 	// -------------------------------------------------------------------------
+
+	/**
+	 * Execute the a Cassandra {@link Statement}. Any errors that result from executing this command will be converted
+	 * into Spring's DAO exception hierarchy.
+	 *
+	 * @param statement a Cassandra {@link Statement}, must not be {@literal null}.
+	 * @return the {@link AsyncResultSet}.
+	 * @throws DataAccessException if there is any problem executing the query.
+	 * @since 3.2
+	 */
+	ListenableFuture<AsyncResultSet> execute(Statement<?> statement) throws DataAccessException;
 
 	/**
 	 * Execute a {@code SELECT} query and convert the resulting items to a {@link List} of entities.

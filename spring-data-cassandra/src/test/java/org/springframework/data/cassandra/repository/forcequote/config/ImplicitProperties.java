@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2020 the original author or authors.
+ * Copyright 2016-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,15 +28,15 @@ import org.springframework.data.cassandra.core.mapping.Table;
 @Table
 public class ImplicitProperties {
 
-	@PrimaryKey(forceQuote = true) String primaryKey;
+	@PrimaryKey(forceQuote = true) private String primaryKey;
 
-	@Column(forceQuote = true) String stringValue = UUID.randomUUID().toString();
+	@Column(forceQuote = true) private String stringValue = UUID.randomUUID().toString();
 
 	public ImplicitProperties() {
 		this(UUID.randomUUID().toString());
 	}
 
-	public ImplicitProperties(String primaryKey) {
+	private ImplicitProperties(String primaryKey) {
 		setPrimaryKey(primaryKey);
 	}
 
@@ -44,7 +44,7 @@ public class ImplicitProperties {
 		return primaryKey;
 	}
 
-	public void setPrimaryKey(String primaryKey) {
+	private void setPrimaryKey(String primaryKey) {
 		this.primaryKey = primaryKey;
 	}
 

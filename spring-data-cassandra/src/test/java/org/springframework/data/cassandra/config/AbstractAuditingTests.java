@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 the original author or authors.
+ * Copyright 2019-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.annotation.CreatedDate;
@@ -38,10 +38,10 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
  *
  * @author Mark Paluch
  */
-public abstract class AbstractAuditingTests {
+abstract class AbstractAuditingTests {
 
 	@Test // DATACASS-4
-	public void enablesAuditingAndSetsPropertiesAccordingly() throws Exception {
+	void enablesAuditingAndSetsPropertiesAccordingly() throws Exception {
 
 		ApplicationContext context = getApplicationContext();
 
@@ -66,7 +66,7 @@ public abstract class AbstractAuditingTests {
 	}
 
 	@Test // DATACASS-4
-	public void enablesReactiveAuditingAndSetsPropertiesAccordingly() throws Exception {
+	void enablesReactiveAuditingAndSetsPropertiesAccordingly() throws Exception {
 
 		ApplicationContext context = getApplicationContext();
 
@@ -93,11 +93,12 @@ public abstract class AbstractAuditingTests {
 	protected abstract ApplicationContext getApplicationContext();
 
 	@Table
+	private
 	class Entity {
 
-		@Id Long id;
-		@CreatedDate LocalDateTime created;
-		LocalDateTime modified;
+		@Id private Long id;
+		@CreatedDate private LocalDateTime created;
+		private LocalDateTime modified;
 
 		@LastModifiedDate
 		public LocalDateTime getModified() {

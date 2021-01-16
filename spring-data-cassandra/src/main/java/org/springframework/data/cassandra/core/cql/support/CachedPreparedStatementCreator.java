@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 the original author or authors.
+ * Copyright 2017-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 package org.springframework.data.cassandra.core.cql.support;
 
+import org.springframework.data.cassandra.core.cql.PreparedStatementCreator;
+import org.springframework.data.cassandra.core.cql.QueryOptions;
+import org.springframework.util.Assert;
+
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
-
-import org.springframework.data.cassandra.core.cql.PreparedStatementCreator;
-import org.springframework.data.cassandra.core.cql.QueryOptions;
-import org.springframework.util.Assert;
 
 /**
  * {@link PreparedStatementCreator} implementation using caching of prepared statements.
@@ -35,7 +35,9 @@ import org.springframework.util.Assert;
  * @author Mark Paluch
  * @since 2.0
  * @see PreparedStatementCache
+ * @deprecated since 3.2, the Cassandra driver has a built-in prepared statement cache with makes external caching of prepared statements superfluous.
  */
+@Deprecated
 public class CachedPreparedStatementCreator implements PreparedStatementCreator {
 
 	private final PreparedStatementCache cache;
