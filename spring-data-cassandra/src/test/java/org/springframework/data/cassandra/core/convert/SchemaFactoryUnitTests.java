@@ -67,6 +67,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author Matthew T. Adams
  * @author Mark Paluch
  * @author Christoph Strobl
+ * @author Aleksei Zotov
  */
 public class SchemaFactoryUnitTests {
 
@@ -873,6 +874,55 @@ public class SchemaFactoryUnitTests {
 
 		CreateIndexSpecification aegolastname = getSpecificationFor("aegolastname", specifications);
 		assertThat(aegolastname.getColumnName()).isEqualTo(CqlIdentifier.fromCql("aegolastname"));
+	}
+
+	@Table
+	@Data
+	static class TypeWithStatic {
+
+		@Id String id;
+		@Column(isStatic = true) String name;
+	}
+
+	@Table
+	@Data
+	static class TypeWithStaticTuple {
+
+		@Id String id;
+
+		@Column(isStatic = true) Address address;
+	}
+
+	@Tuple
+	static class Address {
+		@Element(0) String street;
+		@Element(1) int number;
+	}
+
+	@Test // GH-978
+	void createdTableSpecificationShouldConsiderStaticColumns() {
+
+		CassandraPersistentEntity<?> persistentEntity = ctx
+				.getRequiredPersistentEntity(TypeWithStatic.class);
+
+		CreateTableSpecification tableSpecification = schemaFactory.getCreateTableSpecificationFor(persistentEntity);
+
+		ColumnSpecification name = tableSpecification.getStaticColumns().get(0);
+		assertThat(name.getName().toString()).isEqualTo("name");
+		assertThat(name.isStatic()).isTrue();
+	}
+
+	@Test // GH-978
+	void createdTableSpecificationShouldConsiderStaticForTypedTupleColumns() {
+
+		CassandraPersistentEntity<?> persistentEntity = ctx
+				.getRequiredPersistentEntity(TypeWithStaticTuple.class);
+
+		CreateTableSpecification tableSpecification = schemaFactory.getCreateTableSpecificationFor(persistentEntity);
+
+		ColumnSpecification name = tableSpecification.getStaticColumns().get(0);
+		assertThat(name.getName().toString()).isEqualTo("address");
+		assertThat(name.isStatic()).isTrue();
 	}
 
 }

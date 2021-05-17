@@ -41,16 +41,25 @@ import java.lang.annotation.Target;
  *
  * @author Alex Shvid
  * @author Matthew T. Adams
+ * @author Mark Paluch
+ * @author Aleksei Zotov
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target(value = { ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD })
+@Target(value = { ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER })
 public @interface Column {
 
 	/**
 	 * The name of the column in the table; must be a valid CQL identifier or quoted identifier.
 	 */
 	String value() default "";
+
+	/**
+	 * Whether the column is {@code static}. Default is {@literal false}. Used primarily for schema creation.
+	 *
+	 * @since 3.2
+	 */
+	boolean isStatic() default false;
 
 	/**
 	 * Whether to cause the column name to be force-quoted.

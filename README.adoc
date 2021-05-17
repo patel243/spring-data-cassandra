@@ -1,7 +1,7 @@
 image:https://spring.io/badges/spring-data-cassandra/ga.svg[Spring Data for Apache Cassandra,link=https://projects.spring.io/spring-data-cassandra/#quick-start]
 image:https://spring.io/badges/spring-data-cassandra/snapshot.svg[Spring Data for Apache Cassandra,link=https://projects.spring.io/spring-data-cassandra/#quick-start]
 
-= Spring Data for Apache Cassandra image:https://jenkins.spring.io/buildStatus/icon?job=spring-data-cassandra%2Fmaster&subject=Build[link=https://jenkins.spring.io/view/SpringData/job/spring-data-cassandra/] https://gitter.im/spring-projects/spring-data[image:https://badges.gitter.im/spring-projects/spring-data.svg[Gitter]]
+= Spring Data for Apache Cassandra image:https://jenkins.spring.io/buildStatus/icon?job=spring-data-cassandra%2Fmain&subject=Build[link=https://jenkins.spring.io/view/SpringData/job/spring-data-cassandra/] https://gitter.im/spring-projects/spring-data[image:https://badges.gitter.im/spring-projects/spring-data.svg[Gitter]]
 
 The primary goal of the https://projects.spring.io/spring-data[Spring Data] project is to make it easier to build Spring-powered applications that use new data access technologies such as non-relational databases, map-reduce frameworks, and cloud based data services.
 
@@ -20,7 +20,7 @@ With the power to stay at a high level with annotated POJOs, or at a low level w
 * Exception Translation to the familiar Spring DataAccessException hierarchy
 * Convenient QueryBuilders to eliminate the need to learn CQL
 * Automatic implementation of Repository interfaces including support for custom query methods
-* Based on the 3.x DataStax CQL Java Driver
+* Based on the 4.x DataStax CQL Java Driver
 
 == Code of Conduct
 
@@ -87,7 +87,7 @@ Add the Maven dependency:
 <dependency>
   <groupId>org.springframework.data</groupId>
   <artifactId>spring-data-cassandra</artifactId>
-  <version>${version}.RELEASE</version>
+  <version>${version}</version>
 </dependency>
 ----
 
@@ -98,7 +98,7 @@ If you'd rather like the latest snapshots of the upcoming major version, use our
 <dependency>
   <groupId>org.springframework.data</groupId>
   <artifactId>spring-data-cassandra</artifactId>
-  <version>${version}.BUILD-SNAPSHOT</version>
+  <version>${version}-SNAPSHOT</version>
 </dependency>
 
 <repository>

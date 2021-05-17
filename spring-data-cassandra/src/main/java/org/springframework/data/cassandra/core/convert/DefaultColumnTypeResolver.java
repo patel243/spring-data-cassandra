@@ -45,7 +45,7 @@ import org.springframework.data.util.Lazy;
 import org.springframework.data.util.TypeInformation;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
+import org.springframework.util.ObjectUtils;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.data.TupleValue;
@@ -104,7 +104,7 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 
 			CassandraType annotation = property.getRequiredAnnotation(CassandraType.class);
 
-			if (annotation.type() == Name.UDT && StringUtils.isEmpty(annotation.userTypeName())) {
+			if (annotation.type() == Name.UDT && ObjectUtils.isEmpty(annotation.userTypeName())) {
 				throw new InvalidDataAccessApiUsageException(
 						String.format("Expected user type name in property ['%s'] of type ['%s'] in entity [%s]",
 								property.getName(), property.getType(), property.getOwner().getName()));
@@ -225,9 +225,9 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 				assertTypeArguments(annotation.typeArguments().length, 2);
 
 				CassandraColumnType keyType = createCassandraTypeDescriptor(
-						CassandraSimpleTypeHolder.getDataTypeFor(annotation.typeArguments()[0]));
+						getRequiredDataType(annotation, 0));
 				CassandraColumnType valueType = createCassandraTypeDescriptor(
-						CassandraSimpleTypeHolder.getDataTypeFor(annotation.typeArguments()[1]));
+						getRequiredDataType(annotation, 1));
 
 				return ColumnType.mapOf(keyType, valueType);
 
@@ -235,8 +235,7 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 			case SET:
 				assertTypeArguments(annotation.typeArguments().length, 1);
 
-				DataType componentType = annotation.typeArguments()[0] == Name.UDT ? getUserType(annotation.userTypeName())
-						: CassandraSimpleTypeHolder.getDataTypeFor(annotation.typeArguments()[0]);
+				DataType componentType = getRequiredDataType(annotation, 0);
 
 				if (type == Name.SET) {
 					return ColumnType.setOf(createCassandraTypeDescriptor(componentType));
@@ -252,14 +251,14 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 				return ColumnType.tupleOf(DataTypes.tupleOf(dataTypes));
 			case UDT:
 
-				if (StringUtils.isEmpty(annotation.userTypeName())) {
+				if (ObjectUtils.isEmpty(annotation.userTypeName())) {
 					throw new InvalidDataAccessApiUsageException(
 							"Cannot resolve user type for @CassandraType(type=UDT) without userTypeName");
 				}
 
 				return createCassandraTypeDescriptor(getUserType(annotation.userTypeName()));
 			default:
-				return createCassandraTypeDescriptor(CassandraSimpleTypeHolder.getDataTypeFor(type));
+				return createCassandraTypeDescriptor(CassandraSimpleTypeHolder.getRequiredDataTypeFor(type));
 		}
 	}
 
@@ -443,17 +442,11 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 		return new DefaultCassandraColumnType(typeInformation, dataType);
 	}
 
-	private DataType getUserType(CassandraPersistentEntity<?> persistentEntity, boolean frozen) {
+	private DataType getRequiredDataType(CassandraType annotation, int typeIndex) {
 
-		CqlIdentifier identifier = persistentEntity.getTableName();
-		com.datastax.oss.driver.api.core.type.UserDefinedType userType = userTypeResolver.resolveType(identifier)
-				.copy(frozen);
-
-		if (userType == null) {
-			throw new MappingException(String.format("User type [%s] not found", identifier));
-		}
-
-		return userType;
+		Name typeName = annotation.typeArguments()[typeIndex];
+		return typeName == Name.UDT ? getUserType(annotation.userTypeName())
+				: CassandraSimpleTypeHolder.getRequiredDataTypeFor(typeName);
 	}
 
 	private Class<?> resolveToJavaType(DataType dataType) {
@@ -465,12 +458,20 @@ class DefaultColumnTypeResolver implements ColumnTypeResolver {
 		return codecRegistry.get();
 	}
 
-	private DataType getUserType(String userTypeName) {
+	private UserDefinedType getUserType(CassandraPersistentEntity<?> persistentEntity, boolean frozen) {
+		return getUserType(persistentEntity.getTableName()).copy(frozen);
+	}
 
-		UserDefinedType type = userTypeResolver.resolveType(CqlIdentifier.fromCql(userTypeName));
+	private UserDefinedType getUserType(String userTypeName) {
+		return getUserType(CqlIdentifier.fromCql(userTypeName));
+	}
+
+	private UserDefinedType getUserType(CqlIdentifier userTypeName) {
+
+		UserDefinedType type = userTypeResolver.resolveType(userTypeName);
 
 		if (type == null) {
-			throw new MappingException(String.format("Cannot resolve UserDefinedType for [%s]", userTypeName));
+			throw new MappingException(String.format("User type [%s] not found", userTypeName));
 		}
 
 		return type;

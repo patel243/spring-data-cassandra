@@ -16,6 +16,7 @@
 package org.springframework.data.cassandra.core;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.data.domain.Sort.Direction.*;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -133,16 +134,40 @@ class StatementFactoryUnitTests {
 		assertThat(select.build(ParameterHandling.INLINE).getQuery()).isEqualTo("SELECT ttl(email) FROM group");
 	}
 
-	@Test // DATACASS-343
+	@Test // #1008
 	void shouldMapSelectQueryWithSortLimitAndAllowFiltering() {
 
-		Query query = Query.empty().sort(Sort.by("id.hashPrefix")).limit(10).withAllowFiltering();
+		Query query = Query.empty().sort(Sort.by(DESC, "email", "age"));
 
 		StatementBuilder<Select> select = statementFactory.select(query,
 				converter.getMappingContext().getRequiredPersistentEntity(Group.class));
 
 		assertThat(select.build(ParameterHandling.INLINE).getQuery())
-				.isEqualTo("SELECT * FROM group ORDER BY hash_prefix ASC LIMIT 10 ALLOW FILTERING");
+				.isEqualTo("SELECT * FROM group ORDER BY email DESC,age DESC");
+	}
+
+	@Test // DATACASS-343
+	void shouldMapSelectQueryWithSortByEmbeddedLimitAndAllowFiltering() {
+
+		Query query = Query.empty().sort(Sort.by(DESC, "id.hashPrefix", "id.username"));
+
+		StatementBuilder<Select> select = statementFactory.select(query,
+				converter.getMappingContext().getRequiredPersistentEntity(Group.class));
+
+		assertThat(select.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("SELECT * FROM group ORDER BY hash_prefix DESC,username DESC");
+	}
+
+	@Test // DATACASS-343
+	void shouldMapSelectQueryWithLimitAndAllowFiltering() {
+
+		Query query = Query.empty().limit(10).withAllowFiltering();
+
+		StatementBuilder<Select> select = statementFactory.select(query,
+				converter.getMappingContext().getRequiredPersistentEntity(Group.class));
+
+		assertThat(select.build(ParameterHandling.INLINE).getQuery())
+				.isEqualTo("SELECT * FROM group LIMIT 10 ALLOW FILTERING");
 	}
 
 	@Test // DATACASS-343
@@ -334,6 +359,20 @@ class StatementFactoryUnitTests {
 		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET map=map+{'foo':'Euro'}");
 	}
 
+	@Test // #1007
+	void shouldRemoveFromMap() {
+
+		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
+				.update(Query.empty(), Update.empty().removeFrom("map").value("foo"), personEntity);
+
+		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET map=map-{'foo'}");
+
+		update = statementFactory.update(Query.empty(), Update.empty().removeFrom("map").values("foo", "bar"),
+				personEntity);
+
+		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET map=map-{'foo','bar'}");
+	}
+
 	@Test // DATACASS-343
 	void shouldPrependAllToList() {
 
@@ -418,7 +457,7 @@ class StatementFactoryUnitTests {
 		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
 				.update(Query.empty(), Update.empty().increment("number"), personEntity);
 
-		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number+=1");
+		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number=number+1");
 	}
 
 	@Test // DATACASS-735
@@ -428,7 +467,7 @@ class StatementFactoryUnitTests {
 				.update(Query.empty(), Update.empty().increment("number", Long.MAX_VALUE), personEntity);
 
 		assertThat(update.build(ParameterHandling.INLINE).getQuery())
-				.isEqualTo("UPDATE person SET number+=" + Long.MAX_VALUE);
+				.isEqualTo("UPDATE person SET number=number+" + Long.MAX_VALUE);
 	}
 
 	@Test // DATACASS-343
@@ -437,7 +476,7 @@ class StatementFactoryUnitTests {
 		StatementBuilder<com.datastax.oss.driver.api.querybuilder.update.Update> update = statementFactory
 				.update(Query.empty(), Update.empty().decrement("number"), personEntity);
 
-		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number-=1");
+		assertThat(update.build(ParameterHandling.INLINE).getQuery()).isEqualTo("UPDATE person SET number=number-1");
 	}
 
 	@Test // DATACASS-735
@@ -447,7 +486,7 @@ class StatementFactoryUnitTests {
 				.update(Query.empty(), Update.empty().decrement("number", Long.MAX_VALUE), personEntity);
 
 		assertThat(update.build(ParameterHandling.INLINE).getQuery())
-				.isEqualTo("UPDATE person SET number-=" + Long.MAX_VALUE);
+				.isEqualTo("UPDATE person SET number=number-" + Long.MAX_VALUE);
 	}
 
 	@Test // DATACASS-569

@@ -30,7 +30,7 @@ import org.springframework.data.cassandra.core.mapping.PrimaryKeyClass;
 import org.springframework.data.cassandra.core.mapping.Table;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
-import org.springframework.util.StringUtils;
+import org.springframework.util.ObjectUtils;
 
 /**
  * Scans packages for Cassandra entities. The entity scanner scans for entity classes annotated with
@@ -208,7 +208,7 @@ public class CassandraEntityClassScanner {
 
 		HashSet<Class<?>> classes = new HashSet<>();
 
-		if (StringUtils.isEmpty(basePackage)) {
+		if (ObjectUtils.isEmpty(basePackage)) {
 			return classes;
 		}
 
@@ -232,11 +232,10 @@ public class CassandraEntityClassScanner {
 	/**
 	 * @return entity annotations.
 	 * @see Table
-	 * @see Persistent
 	 * @see PrimaryKeyClass
 	 */
 	@SuppressWarnings("unchecked")
 	protected Class<? extends Annotation>[] getEntityAnnotations() {
-		return new Class[] { Table.class, Persistent.class, PrimaryKeyClass.class };
+		return new Class[] { Table.class, PrimaryKeyClass.class };
 	}
 }

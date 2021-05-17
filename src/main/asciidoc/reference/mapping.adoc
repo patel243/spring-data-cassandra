@@ -312,7 +312,7 @@ include::../{example-root}/LoginEvent.java[tags=class]
 ==== Primary Key Class
 
 A primary key class is a composite primary key class that is mapped to multiple fields or properties of the entity.
-It is annotated with `@PrimaryKeyClass` and must define `equals` and `hashCode` methods.
+It is annotated with `@PrimaryKeyClass` and should define `equals` and `hashCode` methods.
 The semantics of value equality for these methods should be consistent with the database equality for the database types to which the key is mapped.
 Primary key classes can be used with repositories (as the `Id` type) and to represent an entity's identity in a single complex object.
 The following example shows a composite primary key class:
@@ -432,6 +432,7 @@ In order to reference a property of a given `Row`/`UdtValue`/`TupleValue` one ha
 Entity-bound insert and update statements do not include this property.
 * `@Column`: Applied at the field level.
 Describes the column name as it is represented in the Cassandra table, thus letting the name differ from the field name of the class.
+Can be used on constructor arguments to customize the column name during constructor creation.
 * `@Embedded`: Applied at the field level.
 Enables embedded object usage for types mapped to a table or a user-defined type.
 Properties of the embedded object are flattened into the structure of its parent.
@@ -448,6 +449,7 @@ Types are derived from the declaration by default.
 * `@Tuple`: Applied at the type level to use a type as a mapped tuple.
 * `@Element`: Applied at the field level to specify element or field ordinals within a mapped tuple.
 Types are derived from the property declaration by default.
+Can be used on constructor arguments to customize tuple element ordinals during constructor creation.
 * `@Version`: Applied at field level is used for optimistic locking and checked for modification on save operations.
 The initial value is `zero` which is bumped automatically on every update.
 
@@ -515,6 +517,10 @@ The `@Indexed` annotation can be applied to single properties of embedded entiti
 CAUTION: Index creation on session initialization may have a severe performance impact on application startup.
 
 include::./converters.adoc[]
+
+include::../{spring-data-commons-docs}/is-new-state-detection.adoc[leveloffset=+1]
+
+NOTE: Cassandra provides no means to generate identifiers upon inserting data. As consequence, entities must be associated with identifier values. Spring Data defaults to identifier inspection to determine whether an entity is new. If you want to use <<cassandra.auditing,auditing>> make sure to either use <<cassandra.template.optimistic-locking>> or implement `Persistable` for proper entity state detection.
 
 [[cassandra.mapping-usage.events]]
 == Lifecycle Events
